@@ -1,101 +1,372 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>통합 Card Studio</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Studio</title>
+<style>
+:root{
+  --bg:#d3d0c7; --panel:#e8e8e6; --panel2:#f3f3f1; --dark:#2c2c2e; --dark2:#4a4a4c; --ink:#1c1c1e; --sub:#6e6e73; --line:#c9c9c6;
+  --blue:#64bffd; --green:#34c759; --red:#ff3b30; --ok:#2e9e6b; --bad:#d9534f; --warn:#c98a1a;
+  --shadow:0 6px 16px rgba(0,0,0,.16);
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:-apple-system,'SF Pro Text',Pretendard,'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;
+  background:radial-gradient(1000px 520px at 18% -5%,#d3dde2,transparent 65%),linear-gradient(160deg,#aebdc5,#8c9ea8 70%,#82949f);background-attachment:fixed}
+.wrap{max-width:1440px;margin:0 auto;padding:26px 18px 56px}
+.grid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,560px) minmax(0,1fr);grid-template-areas:"side preview main";gap:22px;align-items:start;justify-content:center}
+.side{grid-area:side;position:sticky;top:26px;max-height:calc(100vh - 52px);overflow-y:auto;scrollbar-width:thin}   /* 도형·스티커·템플릿: 미리보기 왼쪽에 붙어 있고, 길면 안에서 스크롤 */
+.main{grid-area:main}
+@media(max-width:1250px){.grid{grid-template-columns:minmax(0,560px) minmax(0,1fr);grid-template-areas:"preview main" "side main"}.side{position:static;max-height:none}}   /* 좁으면 도형·템플릿이 미리보기 아래로 */
+@media(max-width:900px){.grid{grid-template-columns:1fr;grid-template-areas:"preview" "main" "side"}}
+
+/* 상단 글라스 위젯 */
+.glass{position:relative;background:linear-gradient(150deg,rgba(255,255,255,.55),rgba(255,255,255,.2) 55%,rgba(255,255,255,.34));border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 10px 28px rgba(50,70,85,.28),inset 0 1.5px 1px rgba(255,255,255,.95),inset 0 -2px 8px rgba(255,255,255,.4),inset 0 0 22px rgba(255,255,255,.22);
+  backdrop-filter:blur(16px) saturate(1.15);-webkit-backdrop-filter:blur(16px) saturate(1.15)}
+.glass::after{content:'';position:absolute;inset:2px 8% auto 8%;height:38%;border-radius:inherit;background:linear-gradient(rgba(255,255,255,.5),transparent);opacity:.55;pointer-events:none}
+.dock>*{position:relative;z-index:1}
+/* 라이트 그레이 창 (브라우저 창 스타일) */
+.window{grid-area:preview;background:var(--panel);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;position:sticky;top:26px}   /* 오른쪽 패널을 보려고 스크롤해도 미리보기 창이 화면 위쪽에 붙어서 따라옴 */
+.window.nosticky{position:static}   /* 자유형은 캔버스가 화면보다 길어질 수 있어 따라오지 않음 */
+@media(max-width:900px){.window{position:static}}   /* 한 줄로 쌓이는 좁은 화면에서는 따라오지 않음 */
+.wbar{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:11px;color:#444;background:var(--panel2);border-bottom:1px solid var(--line)}
+.wbar i{font-style:normal;font-weight:700}
+.wbar .wclose{border:0;background:none;font:inherit;font-weight:700;font-size:12px;line-height:1;color:#444;cursor:pointer;padding:3px 7px;border-radius:6px}
+.wbar .wclose:hover{background:#e5322d;color:#fff}
+.wbar span{flex:1;text-align:center}
+.wbody{padding:16px 18px 18px}
+.react{display:flex;justify-content:center;gap:6px;padding:8px 12px;margin:0 auto 14px;width:max-content;max-width:100%;background:#fff;border-radius:30px;box-shadow:inset 0 -1px 0 var(--line)}
+.stage{display:flex;justify-content:center}
+.canvaswrap{position:relative;max-width:100%;line-height:0;background:#222;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+#cv{max-height:56vh;max-width:100%;width:auto;height:auto}
+#cv.free{max-height:none}   /* 자유형: 위아래로 끌면 화면에서도 그만큼 길어짐 */
+#guide{position:absolute;inset:0;pointer-events:none;display:none}
+#guide.on{display:block}
+#guide b{display:none}
+#guide.on{background:
+  linear-gradient(to right,transparent calc(33.333% - 1px),rgba(255,255,255,.95) calc(33.333% - 1px),rgba(255,255,255,.95) calc(33.333% + 1px),transparent calc(33.333% + 1px)),
+  linear-gradient(to right,transparent calc(66.666% - 1px),rgba(255,255,255,.95) calc(66.666% - 1px),rgba(255,255,255,.95) calc(66.666% + 1px),transparent calc(66.666% + 1px)),
+  linear-gradient(to bottom,transparent calc(33.333% - 1px),rgba(255,255,255,.95) calc(33.333% - 1px),rgba(255,255,255,.95) calc(33.333% + 1px),transparent calc(33.333% + 1px)),
+  linear-gradient(to bottom,transparent calc(66.666% - 1px),rgba(255,255,255,.95) calc(66.666% - 1px),rgba(255,255,255,.95) calc(66.666% + 1px),transparent calc(66.666% + 1px));
+  filter:drop-shadow(0 0 1px rgba(0,0,0,.7))}
+
+/* 하단 독 (글라스) */
+.dock{background:linear-gradient(150deg,rgba(150,170,185,.5),rgba(255,255,255,.35) 55%,rgba(150,170,185,.4));display:flex;justify-content:center;align-items:flex-end;gap:14px;margin:16px auto 0;width:max-content;max-width:100%;padding:10px 16px;border-radius:24px}
+.dock>.savemenu{display:none;position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);width:min(300px,92vw);z-index:5;border-radius:12px;box-shadow:0 12px 30px rgba(30,45,60,.35)}
+.dock>.savemenu.open{display:block}
+.app{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;cursor:pointer;font:inherit;font-size:10px;font-weight:700;color:#3b4650;padding:0}
+.app .tile{width:52px;height:52px;border-radius:23%;display:grid;place-items:center;border:0;
+  box-shadow:0 4px 10px rgba(30,45,60,.32),inset 0 1px 1px rgba(255,255,255,.7),inset 0 -2px 4px rgba(0,0,0,.12);transition:transform .15s cubic-bezier(.3,1.6,.5,1)}
+.app:hover .tile{transform:translateY(-8px) scale(1.18)}
+.app.on .tile{box-shadow:0 0 0 3px #2f8cff,0 4px 10px rgba(0,0,0,.25)}   /* 안내선이 켜져 있을 때 */
+.app:disabled{opacity:.45;cursor:default}
+.app:disabled:hover .tile{transform:none}
+.unlockBtn{position:absolute;width:30px;height:30px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:grid;place-items:center;cursor:pointer;padding:0;z-index:6;transform:translate(calc(-100% - 8px),8px)}
+.unlockBtn:hover{background:#e9f2ff}
+.app:active .tile{filter:brightness(.88)}
+.app svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.t-green{background:linear-gradient(160deg,#6fe08a,#22a84a)}
+.t-blue{background:linear-gradient(160deg,#5cc0ff,#1a6fe0)}
+.t-yellow{background:linear-gradient(160deg,#ffd75a,#f2960c)}
+.t-gray{background:linear-gradient(160deg,#a9b4c0,#5f6b78)}
+/* 오른쪽 패널 */
+.panel{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+.panel h2{margin:0;padding:10px 16px;font-size:13px;font-weight:600;color:var(--sub);background:var(--panel2);border-bottom:1px solid var(--line)}
+.panel .in{padding:14px 16px 16px}
+.menu{list-style:none;margin:0;padding:0;background:var(--panel2);border-radius:10px;overflow:hidden}
+.menu li{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;font-size:15px;border-bottom:1px solid var(--line);cursor:pointer}
+.menu li:last-child{border-bottom:0}
+.menu li:hover{background:#e9e9e7}
+.menu li.del{color:#ff3b30}
+.menu svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* 다크 알약 버튼 (Do Not Disturb 스타일) */
+.btn{font:inherit;font-size:14px;font-weight:600;color:#fff;padding:9px 18px;border-radius:999px;border:0;cursor:pointer;background:var(--dark2);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.btn:hover{background:#5a5a5d}
+.btn.primary,.btn.on{background:var(--dark)}
+.btn.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--dark)}
+.btn.danger{background:#e5322d;color:#fff}
+.btn.danger:hover:not(:disabled){background:#c9231e}
+#dlg{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(20,28,36,.45);backdrop-filter:blur(3px)}
+#dlg.on{display:flex}
+#dlg .box{width:min(320px,86vw);background:#fff;border-radius:18px;padding:22px 20px 16px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+#dlg h3{margin:0 0 8px;font-size:18px;color:#1c1c1e}
+#dlg p{margin:0 0 18px;font-size:14px;color:#555;line-height:1.45}
+#dlg .acts{display:flex;gap:10px}
+#dlg .acts button{flex:1;border:0;border-radius:12px;padding:11px;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+#dlgCancel{background:#ececea;color:#1c1c1e}
+#dlgOk{background:#e5322d;color:#fff}
+#dlgOk:hover{background:#c9231e}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.sm{padding:5px 13px;font-size:12px}
+.react .btn{background:#ececea;color:var(--ink);box-shadow:none}
+.react .btn.on{background:var(--dark);color:#fff}
+label{display:block;font-size:12px;color:var(--sub);margin:10px 0 3px}
+input[type=text],textarea{width:100%;font:inherit;font-size:14px;color:var(--ink);padding:10px 12px;border-radius:10px;border:0;background:var(--panel2);outline:none;box-shadow:inset 0 0 0 1px var(--line)}
+input:focus,textarea:focus{box-shadow:inset 0 0 0 2px #7a7a80}
+textarea{resize:vertical;min-height:70px}
+input[type=range]{width:100%;accent-color:#3a3a3c;touch-action:pan-y;height:28px}
+.seg{display:flex;gap:2px;background:rgba(0,0,0,.08);border-radius:9px;padding:2px;margin:6px 0}
+.seg button{flex:1;border:0;background:none;font:inherit;font-size:12px;padding:6px 2px;border-radius:7px;cursor:pointer;color:var(--ink)}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);font-weight:700}
+.seg.sm button{font-size:11px;padding:5px 1px}
+.row2{display:flex;gap:8px;margin-top:8px}
+#imgPanel.nophoto .needphoto{opacity:.45;pointer-events:none}   /* 이미지를 고르지 않았을 때 사진이 있어야 쓰는 도구는 흐리게(사진 보정은 미리보기 전체에 적용되므로 그대로 켜져 있음) */
+#adjBox.blankMode .std-only{display:none!important}
+#adjBox:not(.blankMode) .blank-only{display:none}   /* 빈 그림판: 크기·흐림 효과·그리기 도구만 남김 */
+#layer.cross{cursor:crosshair}
+#cutContig.on{background:#2f8cff;color:#fff}
+.swatches{align-items:center;gap:6px;flex-wrap:wrap}
+.swatches button{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25);cursor:pointer;padding:0}
+.swatches button.on{box-shadow:0 0 0 2px #2f8cff}
+#freeCenter.on{background:#2f8cff;color:#fff}
+.catbtn{border:0;border-radius:999px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer;background:rgba(0,0,0,.08);color:var(--ink)}
+.catbtn.on{background:#2c2c2e;color:#fff;font-weight:700}
+.orderbar{min-height:34px;margin-top:10px;display:flex;justify-content:center;align-items:center}   /* 복제: 미리보기 바로 아래(선택했을 때만 보임, 자리는 항상 확보해서 화면이 흔들리지 않음) */
+.shapes{display:flex;flex-wrap:wrap;gap:8px}
+.shapes button{width:44px;height:44px;border:0;border-radius:10px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;display:grid;place-items:center;font-size:22px;padding:0}
+.shapes button:hover{background:#e9e9e7}
+.pbtn{flex:1;border:0;border-radius:8px;padding:8px;font:inherit;font-size:12px;cursor:pointer;background:rgba(0,0,0,.08);color:var(--ink);width:100%}
+.pbtn.go{background:#0a6cff;color:#fff;font-weight:700}
+.hint{font-size:11px;color:#6b7580;margin:6px 0 2px;line-height:1.4}
+#cropBox{position:absolute;display:none;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);cursor:move;pointer-events:auto;box-sizing:border-box;touch-action:none}
+#cropBox.on{display:block}
+#cropBox .hd{position:absolute;width:16px;height:16px;transform:translate(-50%,-50%);background:#fff;border:2px solid #64bffd;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+#brushCur{position:absolute;display:none;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none;transform:translate(-50%,-50%)}
+#layer.brush{cursor:none}
+#layer .fh{position:absolute;display:none;z-index:6;touch-action:none;transition:background .12s}
+#layer.free .fh{display:block}
+#layer .fh:hover,#layer .fh.drag{background:rgba(100,191,253,.6)}
+.fh[data-e=t]{left:16px;right:16px;top:0;height:12px;cursor:ns-resize}
+.fh[data-e=b]{left:16px;right:16px;bottom:0;height:12px;cursor:ns-resize}
+.fh[data-e=l]{top:16px;bottom:16px;left:0;width:12px;cursor:ew-resize}
+.fh[data-e=r]{top:16px;bottom:16px;right:0;width:12px;cursor:ew-resize}
+.fh[data-e=tl]{left:0;top:0;width:18px;height:18px;cursor:nwse-resize}
+.fh[data-e=br]{right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize}
+.fh[data-e=tr]{right:0;top:0;width:18px;height:18px;cursor:nesw-resize}
+.fh[data-e=bl]{left:0;bottom:0;width:18px;height:18px;cursor:nesw-resize}
+.adjreset:disabled{color:#aaa;cursor:default}
+.adjreset{float:right;border:0;background:none;color:#0a6cff;font:inherit;font-size:12px;cursor:pointer;padding:0}
+.presets{display:flex;gap:8px;overflow-x:auto;padding:6px 0 8px}
+.preset{flex:0 0 auto;border:0;background:none;cursor:pointer;font:inherit;font-size:11px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:4px;padding:0}
+.preset canvas{width:54px;height:54px;border-radius:10px;border:2px solid transparent;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.preset.on canvas{border-color:#0a6cff}
+input[type=color]{width:46px;height:36px;border:0;border-radius:8px;background:var(--panel2);padding:3px}
+.val{float:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.msg{font-size:13px;padding:9px 12px;margin-top:10px;border-radius:10px;background:#f3f3f1}
+#imgMsg:not(.bad),#tplMsg:not(.bad){display:none}
+.msg.warn::before{content:'⚠︎ ';color:#e5322d;font-weight:700}   /* 경고 메시지는 글자 앞에 빨간 경고 기호(⚠). 이모지형(⚠️)은 색이 안 바뀌어서 글자형으로 표시 */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.cmp figure{margin:0;text-align:center;font-size:12px;color:var(--sub)}
+.cmp img,.cmp canvas{max-width:100%;max-height:200px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.hide{display:none!important}
+#layer{position:absolute;inset:0;cursor:default;touch-action:none}
+#layer.over{cursor:move}
+#sel .hd{display:none;position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);background:#fff;border:2px solid #64bffd;border-radius:50%;pointer-events:auto;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+#sel.photo .hd{display:block}
+#sel.text .hd{display:block}   /* 문구·도형: 꼭짓점 = 크기, 변 가운데 = 가로·세로 늘이기, 오른쪽 위 = 삭제 */
+#sel .hd.del{width:22px;height:22px;background:#e5322d;border:2px solid #fff;color:#fff;font:700 15px/1 sans-serif;display:none;place-items:center;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+#sel.photo .hd.del,#sel.text .hd.del{display:grid}
+#sel .rh{display:none;position:absolute;left:50%;top:-40px;width:14px;height:14px;margin-left:-9px;border-radius:50%;background:#fff;border:2px solid #64bffd;pointer-events:auto;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+#sel .rh::after{content:'';position:absolute;left:50%;top:100%;width:2px;height:24px;margin-left:-1px;background:#64bffd}   /* 상자까지 이어지는 실선 */
+#sel.photo .rh,#sel.text .rh{display:block}
+#bgToggle.on{background:#2f8cff;color:#fff}
+#sel{opacity:0;transition:opacity .12s;position:absolute;
+}
+#sel.show,#sel.text,#sel.photo{opacity:1}   /* 선택된 사진·텍스트는 항상 표시 */
+#sel.text{border:2px dashed #2f8cff;background:rgba(47,140,255,.1);box-shadow:0 0 0 1px rgba(255,255,255,.9),0 0 10px rgba(47,140,255,.45)}
+#sel{border:2px solid #64bffd;border-radius:4px;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.8)}
+#editor-input{position:absolute;transform:translate(-50%,-50%);width:78%;min-height:2.4em;text-align:center;font-weight:800;line-height:1.3;resize:none;overflow:hidden;
+  background:#fff;color:#111;border:2px dashed #2f8cff;border-radius:8px;padding:4px 6px;outline:none;text-shadow:none;font-family:inherit;box-shadow:0 0 0 1px rgba(0,0,0,.15)}   /* 문구 편집 중에는 사진 위에서도 보이도록 흰 배경·검정 글자로 고정 */
+#newText:focus::placeholder{color:transparent}
+#editor-input::placeholder{color:rgba(0,0,0,.4);font-weight:500}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);max-width:90vw;z-index:9}
+.tplbtn{width:118px;padding:6px;border-radius:12px;border:0;background:var(--panel2);cursor:pointer;font:inherit;font-weight:600;font-size:13px;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.tplbtn img{width:100%;height:84px;object-fit:cover;border-radius:8px;display:block;margin-bottom:5px;background:#fff}
+.tplbtn.on{box-shadow:0 0 0 3px var(--blue)}
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <main class="editor-area">
-            <header class="header">
-                <h2>Card Studio Editor</h2>
-                <div class="ratio-controls">
-                    <span>화면 비율:</span>
-                    <button class="ratio-btn active" onclick="changeRatio('1/1', this)">1:1</button>
-                    <button class="ratio-btn" onclick="changeRatio('4/5', this)">4:5</button>
-                    <button class="ratio-btn" onclick="changeRatio('9/16', this)">9:16</button>
-                </div>
-            </header>
+<div class="wrap">
+  <div class="grid" id="editor">
+    <aside class="side" aria-label="도형·스티커·템플릿">
+      <section class="panel" aria-label="도형·스티커">
+        <h2>도형·스티커</h2>
+        <div class="in">
+          <div class="shapes" id="shapeRow"></div>
+          <label style="margin-top:12px">스티커</label>
+          <div class="row" id="stickerCats" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+          <div class="shapes" id="stickerRow"></div>
+        </div>
+      </section>
+      <section class="panel" aria-label="배경 템플릿">
+        <h2>템플릿</h2>
+        <div class="in">
+          <div class="row" id="tplRow"></div>
+          <div class="row" style="margin-top:10px;align-items:center"><span style="font-size:13px;flex:1">배경색 (템플릿 없이 단색)</span><input type="color" id="bgPick" value="#ffffff" aria-label="배경색"></div>
+          <div class="msg" id="tplMsg">배경 템플릿을 고르면 미리보기의 배경이 됩니다. 내려받으면 템플릿 + 내가 넣은 사진 + 문구가 한 장으로 저장됩니다.</div>
+        </div>
+      </section>
+    </aside>
 
-            <div class="canvas-wrapper">
-                <div class="canvas-container" id="canvas-area">
-                    <img id="preview-img" class="canvas-image" src="" alt="Preview" style="display:none;">
-                    
-                    <!-- 여러 개의 텍스트가 추가될 컨테이너 영역 -->
-                    <div id="text-layer" class="text-layer"></div>
-                    
-                    <span id="placeholder-text" class="placeholder">이미지 없음</span>
-                </div>
+    <section class="window" aria-label="미리보기">
+      <div class="wbar"><button type="button" class="wclose" id="closeSite" aria-label="사이트 닫기" title="닫기">✕</button><span>Photo Studio</span></div>
+      <div class="wbody">
+        <div class="react" role="group" aria-label="화면비">
+          <button class="btn ratio sm" data-ratio="1:1">1:1</button>
+          <button class="btn ratio sm" data-ratio="4:5">4:5</button>
+          <button class="btn ratio sm" data-ratio="9:16">9:16</button>
+          <button class="btn ratio sm" data-ratio="free" title="사진 테두리를 끌어 비율을 마음대로 조절">자유형</button>
+          <button type="button" class="btn sm hide" id="freeCenter" aria-pressed="true" title="켜면 테두리를 끌 때 위아래가 가운데를 기준으로 함께 늘고 줄어듭니다 (Alt를 누르고 끌면 반대로)">가운데 기준</button>
+        </div>
+        <div class="stage"><div class="canvaswrap"><canvas id="cv" data-testid="preview"></canvas><div id="guide"><b></b></div><div id="layer"><textarea id="editor-input" maxlength="300" class="hide" aria-label="문구 입력"></textarea></div></div></div>
+        <div class="orderbar"><div class="row" id="orderRow" style="justify-content:center;gap:8px"><button class="btn sm hide" id="dupBtn" type="button" disabled title="선택한 항목 복사 (Ctrl+J)">복사</button><button class="btn sm" id="undoBtn" type="button" disabled title="바로 전 작업으로 돌아가기 — 문구·이미지·그림·도형 모두 (Ctrl+Z)">이전</button></div></div>
+        <div class="dock glass">
+          <button class="app" id="saveBtn" type="button" aria-haspopup="true" aria-expanded="false" title="저장하기"><span class="tile t-green"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></span>저장하기</button>
+          <button class="app" id="loadBtn" type="button" aria-haspopup="true" aria-expanded="false" title="불러오기"><span class="tile t-blue"><svg viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4l4 4M5 20h14"/></svg></span>불러오기</button>
+          <button class="app" id="lockBtn" type="button" disabled title="선택한 이미지·그림·문구·도형을 움직이지 않게 고정 (해제: 오른쪽 위 자물쇠 아이콘)"><span class="tile t-gray"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>잠금</button>
+          <button class="app" id="guideBtn" type="button" aria-pressed="false" title="가장자리 여백 안내선 켜기·끄기"><span class="tile t-gray"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></span>안내선</button>
+          <input type="file" id="file" class="hide" multiple accept=".png,.jpg,.jpeg,image/png,image/jpeg">
+          <input type="file" id="tplFile" class="hide" accept=".json,application/json">
+          <div class="savemenu" id="loadMenu" role="menu">
+            <ul class="menu">
+              <li id="loadImg" role="menuitem">이미지 불러오기 (PNG·JPEG)<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></li>
+              <li id="newCanvas" role="menuitem">빈 그림판 추가<svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16zM14 7l3 3"/></svg></li>
+              <li id="tplImport" role="menuitem">템플릿 가져오기 (JSON)<svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></li>
+              <li id="clearImg" class="del" role="menuitem">사진 삭제<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></li>
+            </ul>
+          </div>
+          <div class="savemenu" id="saveMenu" role="menu">
+            <ul class="menu">
+              <li id="saveAsPng" role="menuitem">PNG로 저장하기<svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></li>
+              <li id="saveAsJpg" role="menuitem">JPEG로 저장하기<svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></li>
+              <li id="tplExport" role="menuitem">템플릿 내보내기 (JSON)<svg viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4l4 4M5 20h14"/></svg></li>
+            </ul>
+          </div>
+        </div>
+        <div id="cmpBox" class="hide">
+          <div class="msg" id="cmpMsg"></div>
+          <div class="cmp"><figure><div id="cmpA"></div>미리보기(캔버스)</figure><figure><div id="cmpB"></div>내려받은 파일</figure></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="main">
+      <section class="panel" id="imgPanel" aria-label="이미지 편집 도구">
+        <h2>이미지</h2>
+        <div class="in">
+          <div id="photoBox" class="needphoto"><label>선택한 사진 크기 <span class="val" id="vps"></span></label><input type="range" id="ps" min="10" max="300" step="1"></div>
+          <div id="opacityBox"><label>사진 투명도 <span class="val" id="vpo"></span></label><input type="range" id="pOp" min="0" max="100" step="1" value="0"><div class="hint" id="opTarget"></div></div>
+          <div id="adjBox">
+            <label class="needphoto" style="margin-top:12px">사진 도구 <button type="button" id="resetPhoto" class="adjreset" style="margin-left:12px" disabled title="사진 도구로 한 모든 작업을 처음으로">초기화</button></label>
+            <div class="blank-only" id="layerBox">
+              <label>그림 목록 <button type="button" id="newCanvas2" class="adjreset" title="새 그림판을 하나 더 추가">+ 새 그림</button></label>
+              <div class="row" id="layerList" style="flex-wrap:wrap;gap:6px"></div>
+              <label>이름 바꾸기</label>
+              <input type="text" id="layerName" maxlength="12" placeholder="그림 이름 (최대 12자)" aria-label="그림 이름" style="width:100%;padding:7px 8px;border-radius:9px;border:1px solid rgba(0,0,0,.15);background:#f3f3f2;font:inherit;font-size:13px">
             </div>
-
-            <div class="editor-controls">
-                <div class="control-group">
-                    <label>이미지 업로드 (PNG/JPEG 전용)</label>
-                    <input type="file" id="image-upload" accept="image/png, image/jpeg" onchange="handleImageUpload(event)">
-                    <div class="validation-msg" id="file-msg"></div>
-                </div>
-
-                <div class="control-group">
-                    <label>텍스트 편집</label>
-                    <div style="display: flex; gap: 8px;">
-                        <!-- 버튼 클릭 시 addText() 호출 -->
-                        <button id="btn-add-text" class="btn-secondary" style="flex: 1; white-space: nowrap;" onclick="addText()">+ 텍스트 추가</button>
-                    </div>
-                    <div class="validation-msg" id="text-msg"></div>
-                </div>
-
-                <div class="sliders">
-                    <div class="control-group" style="grid-column: span 2;">
-                        <label>사진 확대 / 축소 (Zoom) <span id="zoom-val">100%</span></label>
-                        <input type="range" id="zoom-slider" min="100" max="300" value="100" oninput="updateImageZoom()">
-                    </div>
-
-                    <div class="control-group">
-                        <label>선택된 문구 크기 <span id="size-val">24px</span></label>
-                        <input type="range" id="size-slider" min="10" max="80" value="24" oninput="updateSelectedTextStyle()">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>선택된 문구 색상</label>
-                        <input type="color" id="color-input" value="#ffffff" oninput="updateSelectedTextStyle()">
-                    </div>
-                </div>
-                
-                <button class="btn-primary" onclick="downloadPreview()">결과 다운로드 (Mock)</button>
+            <div class="seg needphoto" id="toolSeg">
+              <button type="button" data-tool="move" class="on" title="이동·크기 (V)">이동·크기</button>
+              <button type="button" data-tool="crop" class="std-only" title="자르기 (C) — Enter 적용 · Esc 취소">자르기</button>
+              <button type="button" data-tool="brush" title="그리기 (B 펜 · E 지우개 · [ ] 크기)">그리기</button>
+              <button type="button" data-tool="cut" class="std-only" title="누끼 (W 색 지우기 · L 올가미)">누끼</button>
+              <button type="button" data-tool="liquify" class="std-only" title="터치 보정 (Ctrl+Shift+X)">터치 보정</button>
             </div>
-        </main>
-
-        <aside class="sidebar">
-            <section class="panel">
-                <h3>다중 입력 검사 (12건)</h3>
-                <p class="desc">예상값이 있는 굵단 입력 12개를 검사합니다. (빈 칸 불가)</p>
-                <div class="multi-input-grid" id="multi-input-container"></div>
-                <button class="btn-primary mt-10" onclick="saveCard3()">12건 검사 및 대표 결과 전송</button>
-                <div class="validation-msg" id="card3-msg"></div>
-            </section>
-
-            <section class="panel">
-                <h3>템플릿 관리 (CRUD)</h3>
-                <div class="template-create">
-                    <input type="text" id="new-template-name" placeholder="새 템플릿 이름">
-                    <button class="btn-secondary" onclick="createTemplate()">생성</button>
+            <div id="liqOpts" class="hide">
+              <div class="seg sm" id="liqMode">
+                <button type="button" data-m="push" class="on">터치 보정</button><button type="button" data-m="bloat">부풀리기</button><button type="button" data-m="pucker">오므리기</button>
+              </div>
+              <label>크기 <span class="val" id="vls"></span></label><input type="range" id="liqSize" min="3" max="40" step="1" value="14">
+              <label>강도 <span class="val" id="vlt"></span></label><input type="range" id="liqStr" min="5" max="100" step="1" value="60">
+              <div class="hint">사진 위를 끌면 픽셀이 밀려납니다. 부풀리기·오므리기는 누르고 있는 동안 계속 적용됩니다. (Ctrl+Shift+X)</div>
+            </div>
+            <div id="cropOpts" class="hide">
+              <div class="seg sm" id="cropRatio">
+                <button type="button" data-r="0" class="on">자유</button><button type="button" data-r="1">1:1</button><button type="button" data-r="0.8">4:5</button><button type="button" data-r="0.5625">9:16</button><button type="button" data-r="1.7778">16:9</button>
+              </div>
+              <div class="row2"><button type="button" id="cropOk" class="pbtn go">자르기 적용</button><button type="button" id="cropCancel" class="pbtn">취소</button></div>
+              <div class="hint">사진 위에서 상자를 끌어 옮기고, 모서리·변의 점을 끌어 영역을 조절하세요.</div>
+            </div>
+            <div id="brushOpts" class="hide">
+              <div class="seg sm" id="brushMode">
+                <button type="button" data-m="pen" class="on">펜</button><button type="button" data-m="erase" title="그린 것을 지우고 사진 원래 모습으로">지우개</button>
+              </div>
+              <div id="drawColorBox">
+                <label>색</label>
+                <div class="row swatches" id="drawSwatches">
+                  <input type="color" id="drawColor" value="#ff3b30" aria-label="그리기 색">
+                  <button type="button" data-c="#111111" style="background:#111111" aria-label="검정"></button><button type="button" data-c="#ffffff" style="background:#ffffff" aria-label="흰색"></button><button type="button" data-c="#ff3b30" style="background:#ff3b30" aria-label="빨강"></button><button type="button" data-c="#ffcc00" style="background:#ffcc00" aria-label="노랑"></button><button type="button" data-c="#34c759" style="background:#34c759" aria-label="초록"></button><button type="button" data-c="#2f8cff" style="background:#2f8cff" aria-label="파랑"></button>
                 </div>
-                <ul class="template-list" id="template-list"></ul>
-            </section>
-
-            <section class="panel">
-                <h3>JSON 시험 및 완성본</h3>
-                <p class="desc">정상 JSON 복원 및 결함 JSON 거부를 테스트합니다.</p>
-                <div class="json-controls">
-                    <button class="btn-primary" onclick="loadValidJson()">정상 JSON 불러오기</button>
-                    <button class="btn-danger" onclick="loadInvalidJson()">결함 JSON 불러오기</button>
-                </div>
-                <div class="validation-msg" id="card5-msg"></div>
-            </section>
-        </aside>
-    </div>
-    <script src="script.js"></script>
+              </div>
+              <div id="penSizeBox"><label>굵기 <span class="val" id="vbs"></span></label><input type="range" id="brushSize" min="1" max="100" step="1" value="10"></div>
+              <div id="eraseSizeBox" class="hide"><label>지우개 크기 <span class="val" id="ves"></span></label><input type="range" id="eraseSize" min="1" max="100" step="1" value="20"></div>
+              <div class="hint">사진 위를 끌어서 그림을 그립니다. 지우개는 그린 것을 지워 사진 원래 모습으로 되돌립니다. "이전"(Ctrl+Z)으로 취소할 수 있어요.</div>
+            </div>
+            <div id="cutOpts" class="hide">
+              <div class="seg sm" id="cutMode">
+                <button type="button" data-m="wand" class="on" title="색 지우기 (W)">색 지우기</button><button type="button" data-m="erase">지우개</button><button type="button" data-m="restore">되살리기</button><button type="button" data-m="lasso" title="올가미 (L)">올가미</button>
+              </div>
+              <div id="cutWandBox">
+                <label>허용 오차 <span class="val" id="vcutTol"></span></label><input type="range" id="cutTol" min="0" max="100" step="1" value="30">
+                <div class="row" style="margin-top:6px"><button type="button" class="btn sm" id="cutContig" aria-pressed="true" title="켜면 클릭한 곳과 이어진 비슷한 색만, 끄면 사진 전체의 비슷한 색을 모두 지웁니다">연결된 부분만</button></div>
+              </div>
+              <div id="cutSizeBox" class="hide"><label>크기 <span class="val" id="vcutSize"></span></label><input type="range" id="cutSize" min="1" max="100" step="1" value="20"></div>
+              <div id="cutLassoBox" class="hide">
+                <div class="seg sm" id="lassoSide"><button type="button" data-s="out" class="on">바깥 지우기</button><button type="button" data-s="in">안쪽 지우기</button></div>
+                <div class="row2"><button type="button" id="lassoDone" class="pbtn go">선택 완료</button><button type="button" id="lassoCancel" class="pbtn">취소</button></div>
+              </div>
+              <label><span id="cutSoftLbl">경계 부드럽게 (px)</span> <span class="val" id="vcutSoft"></span></label><input type="range" id="cutSoft" min="0" max="10" step="1" value="1">
+              <div class="hint" id="cutHint"></div>
+            </div>
+            <div class="row2 std-only needphoto"><button type="button" id="fitPhoto" class="pbtn">틀에 꽉 채우기</button></div>
+            <div class="row2 std-only needphoto"><button type="button" id="rotPhoto" class="pbtn" title="시계 방향 90° 회전">90° 회전</button><button type="button" id="flipH" class="pbtn">좌우 반전</button><button type="button" id="flipV" class="pbtn">상하 반전</button></div>
+            <label class="std-only" style="margin-top:12px">사진 보정 <button type="button" id="adjReset" class="adjreset">초기화</button></label>
+            <div class="hint std-only" id="adjTarget"></div>
+            <div class="presets std-only" id="presets"></div>
+            <label class="std-only">밝기 <span class="val" id="vbr"></span></label><input type="range" class="std-only" id="adj-br" data-k="br" min="50" max="150" step="1">
+            <label class="std-only">대비 <span class="val" id="vct"></span></label><input type="range" class="std-only" id="adj-ct" data-k="ct" min="50" max="150" step="1">
+            <label class="std-only">채도 <span class="val" id="vsa"></span></label><input type="range" class="std-only" id="adj-sa" data-k="sa" min="0" max="200" step="1">
+            <label class="std-only">따뜻함 <span class="val" id="vwm"></span></label><input type="range" class="std-only" id="adj-wm" data-k="wm" min="-100" max="100" step="1">
+            <label>흐림 효과 <span class="val" id="vbl"></span></label><input type="range" id="adj-bl" data-k="bl" min="0" max="20" step="1">
+          </div>
+          <div id="imgMsg" class="msg">사진 없음 — 흰 틀만 보입니다. 사진은 검정 테두리 안을 가득 채우며, 테두리 안쪽만 저장됩니다. 마우스로 끌어 옮길 수 있고, 불러온 이미지는 재인코딩되어 메타데이터(EXIF 등)가 제거됩니다.</div>
+        </div>
+      </section>
+      <section class="panel" aria-label="문구 편집 도구">
+        <h2>문구</h2>
+        <div class="in">
+          <div class="row"><button class="btn primary" id="addText">+ 텍스트 추가</button><button class="btn danger" id="delText" disabled>텍스트 삭제</button></div>
+          <textarea id="newText" maxlength="300" placeholder="문구 입력..." aria-label="추가할 문구" style="margin-top:10px"></textarea>
+          <div id="textMsg" class="msg hide" style="margin-top:8px"></div>
+          <div id="styleBox" class="hide">
+            <label><span id="lblSize">글자 크기 · 색</span> <span class="val" id="vs"></span><span id="vc" hidden></span></label>
+            <div class="row"><input type="range" id="s" min="2" max="20" step="0.5" style="flex:1"><input type="color" id="c" aria-label="글자색"></div>
+            <label><span id="lblOp">글자 불투명도</span> <span class="val" id="vop"></span></label><input type="range" id="opSl" min="0" max="100" step="5" value="100">
+            <label>기울기 <span class="val" id="vr"></span></label>
+            <div class="row"><button class="btn" id="resetRot" type="button">기울기 초기화</button><button class="btn" id="resetStretch" type="button">늘이기 초기화</button></div>
+            <div id="textOnly">
+              <label>글자 모양</label>
+              <div class="seg" id="fmtSeg"><button type="button" data-k="b" style="font-weight:800">굵게</button><button type="button" data-k="i" style="font-style:italic">기울임</button><button type="button" data-k="u" style="text-decoration:underline">밑줄</button><button type="button" data-k="st" style="text-decoration:line-through">취소선</button></div>
+              <label>정렬</label>
+              <div class="seg" id="alignSeg"><button type="button" data-a="left">왼쪽</button><button type="button" data-a="center">가운데</button><button type="button" data-a="right">오른쪽</button></div>
+              <label>글자 간격 <span class="val" id="vlsp"></span></label><input type="range" id="lsSl" min="-5" max="30" step="1" value="0">
+              <label>줄 간격 <span class="val" id="vlh"></span></label><input type="range" id="lhSl" min="100" max="250" step="5" value="130">
+              <label>글꼴</label>
+              <select id="fontSel" aria-label="글꼴" style="width:100%;padding:7px 8px;border-radius:9px;border:1px solid rgba(0,0,0,.15);background:#f3f3f2;font:inherit;font-size:13px"></select>
+              <label>글자 배경</label>
+              <div class="row"><button type="button" class="btn" id="bgToggle" aria-pressed="false" style="flex:1">비적용</button></div>
+              <label>배경 투명도 · 색 <span class="val" id="vba"></span></label>
+              <div class="row"><input type="range" id="bga" min="0" max="100" step="5" value="0" disabled style="flex:1"><input type="color" id="bgc" aria-label="배경색" value="#ffffff"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div><div id="toast"></div>
+<div id="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle"><div class="box"><h3 id="dlgTitle">삭제하기</h3><p id="dlgMsg"></p><div class="acts"><button type="button" id="dlgCancel">취소</button><button type="button" id="dlgOk">삭제</button></div></div></div>
+<script src="app.js"></script>
 </body>
 </html>
