@@ -40,7 +40,6 @@ const cleanItems = (v) => (Array.isArray(v) ? v.filter((i) => i && typeof i.text
 try { localStorage.removeItem('zzal.draft'); } catch (e) { /* 이전 버전 초안 정리 */ }
 
 const save = () => {};   // 새로고침하면 사진·문구·화면비는 초기화됨 (템플릿만 저장소에 유지)
-const params = (st) => ({ items: JSON.parse(JSON.stringify(st.items)), ratio: st.ratio });
 const selItem = () => state.items.find((i) => i.id === state.sel) || null;
 const selPhoto = () => state.photos.find((p) => p.id === state.sel) || null;
 
@@ -283,8 +282,6 @@ function drawItem(ctx, W, H, st, engine) {
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   return { lines, blank, box: { l: cx - bw / 2, r: cx + bw / 2, t: cy - bh / 2, b: cy + bh / 2, rot }, fontPx };
 }
-const inside = (r) => r.boxes.every((b) => b.r - b.l === 0 || (b.l >= MARGIN * r.W - 1 && b.r <= (1 - MARGIN) * r.W + 1 &&
-  b.t >= MARGIN * r.H - 1 && b.b <= (1 - MARGIN) * r.H + 1));
 
 /* ---------- 화면 갱신 ---------- */
 const cv = $('cv'), layer = $('layer'), inp = $('editor-input');
@@ -1418,26 +1415,7 @@ $('clearImg').addEventListener('click', () => {
   endEdit(); confirmDelete(`모든 사진·그림 ${n}개를 삭제할까요? 삭제한 뒤에도 되돌리기(Ctrl+Z)로 복구할 수 있습니다.`, () => { checkpoint(); state.photos = []; if (!selItem()) state.sel = null; setMsg('imgMsg', '모든 사진·그림을 삭제했습니다.', 'ok'); syncUI(); paint(); });
 });
 
-/* ---------- 합성 샘플 이미지 (저작권·메타데이터 없음) ---------- */
-function synth(w, h, alpha) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#ffb86b'); g.addColorStop(.5, '#e0679b'); g.addColorStop(1, '#4b6fe0');
-  x.fillStyle = g; x.fillRect(0, 0, w, h);
-  x.fillStyle = 'rgba(255,255,255,.35)';
-  for (let i = 0; i < 6; i++) { x.beginPath(); x.arc(w * (.15 + i * .15), h * (.3 + (i % 3) * .2), Math.min(w, h) * .12, 0, 7); x.fill(); }
-  if (alpha) { x.clearRect(0, 0, w * .3, h); x.clearRect(w * .7, 0, w * .3, h); }   // 투명 영역
-  return c;
-}
 const toBlob = (c, type, q) => new Promise((r) => c.toBlob(r, type, q));
-async function sampleFile(kind) {
-  if (kind === 'png') return new File([await toBlob(synth(1200, 900), 'image/png')], 'sample.png', { type: 'image/png' });
-  if (kind === 'jpg') return new File([await toBlob(synth(900, 1200), 'image/jpeg', .9)], 'sample.jpg', { type: 'image/jpeg' });
-  if (kind === 'gif') return new File([Uint8Array.from('GIF89a\x01\x00\x01\x00\x00\x00\x00;'.split('').map((ch) => ch.charCodeAt(0)))], 'sample.gif', { type: 'image/gif' });
-  return new File(['이건 이미지가 아닙니다'], 'sample.txt', { type: 'text/plain' });
-}
-document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => loadFile(await sampleFile(b.dataset.sample))));
-
 /* ---------- 저장 + 미리보기 대조 ---------- */
 function hasMetadata(bytes) {
   const s = new TextDecoder('latin1').decode(bytes);

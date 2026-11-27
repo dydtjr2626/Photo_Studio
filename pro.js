@@ -159,7 +159,6 @@
     toast(`SVG 로 저장했습니다 (${fmtBytes(blob.size)}). 문구·도형은 편집 가능한 벡터이고 사진은 이미지로 들어 있습니다. 전체 보정·전체 투명도는 반영되지 않습니다.`, 'ok');
   }
   $q('saveSvg').addEventListener('click', saveSvg);
-  window.PSBuildSvg = buildSvg;
 
   /* ================= SVG 가져오기: 벡터가 아니라 사진(래스터)으로 들어옴 ================= */
   async function placeCanvas(c, name, msg) {
@@ -350,6 +349,5 @@
     setMsg('imgMsg', `PSD 를 가져왔습니다: 레이어 ${made.length}개${skipped ? `(숨김 ${skipped}개 제외)` : ''} · 문구·스마트 오브젝트·조정 레이어·효과는 이미지로 들어오며 편집할 수 없습니다.`, 'ok');
     return { ok: true, kind: 'PSD' };
   }
-  window.PSImport = { psd: importPsd, svg: importSvg, parsePsd };
-  window.PSExport = { psdBytes, buildSvg, makePdf, reflow, reflowY };
+  window.PSImport = { psd: importPsd, svg: importSvg };
 })();
