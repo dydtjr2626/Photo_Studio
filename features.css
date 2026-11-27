@@ -1,0 +1,30 @@
+/* features.css — ux.js 전용 스타일 (ux- 접두사). 값은 style.css :root 토큰만 사용 */
+.ux-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:3;line-height:1.4}
+.ux-empty.ux-off{display:none}
+.ux-empty-card{pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:var(--sp-4);max-width:86%;padding:var(--sp-5);border-radius:var(--r-panel);background:var(--surface);border:1px solid var(--line);color:var(--ink);box-shadow:var(--shadow-2);text-align:center}
+.ux-empty-main{pointer-events:auto;font:inherit;font-size:var(--fs-lg);font-weight:600;padding:var(--sp-3) var(--sp-5);border:1px solid var(--accent);border-radius:var(--r-btn);cursor:pointer;color:#fff;background:var(--accent);transition:background var(--t)}
+.ux-empty-main:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.ux-empty-drop{margin:0;font-size:0;line-height:1.4;color:var(--sub);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:var(--sp-2)}   /* 원문은 스크린리더용으로 두고(font-size 0) 같은 내용을 12px 한 줄 + PNG·JPEG 칩으로 그림 */
+.ux-empty-drop::before{content:"또는 사진을 여기로 끌어다 놓으세요" / "";font-size:var(--fs-sm);white-space:nowrap}
+.ux-empty-drop::after{content:"PNG · JPEG" / "";font-size:var(--fs-sm);font-weight:600;padding:2px var(--sp-2);border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--line);color:var(--sub)}
+.ux-empty-row{display:flex;gap:var(--sp-2);flex-wrap:wrap;justify-content:center}
+.ux-empty-sub{pointer-events:auto;font:inherit;font-size:var(--fs-md);font-weight:600;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-btn);cursor:pointer;color:var(--accent-ink);background:none;border:1px solid transparent;transition:background var(--t)}   /* 보조 버튼: ghost */
+.ux-empty-sub:hover{background:var(--surface-2)}
+.ux-empty button:focus-visible,.ux-keys-btn:focus-visible,.ux-modal-x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ux-hint{margin:var(--sp-4) auto 0;max-width:100%;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);line-height:1.4;text-align:center;color:var(--sub);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-card)}
+.ux-hint[hidden]{display:none}
+.ux-keys-btn{margin-left:auto;font:inherit;font-size:var(--fs-sm);font-weight:600;padding:var(--sp-1) var(--sp-3);border:1px solid var(--line-strong);border-radius:var(--r-btn);background:var(--surface-2);color:var(--ink);cursor:pointer;white-space:nowrap;transition:background var(--t)}
+.ux-keys-btn:hover{background:var(--line)}
+.ux-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:var(--sp-4);background:rgba(28,28,30,.4)}
+.ux-modal[hidden]{display:none}
+.ux-modal-box{width:min(680px,100%);max-height:86vh;display:flex;flex-direction:column;border-radius:var(--r-panel);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-2);outline:none}
+.ux-modal-head{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--line)}
+.ux-modal-head h2{margin:0;font-size:var(--fs-lg);font-weight:600}
+.ux-modal-x{font:inherit;font-size:var(--fs-md);font-weight:600;padding:var(--sp-2) var(--sp-3);border:1px solid var(--line-strong);border-radius:var(--r-btn);background:var(--surface-2);cursor:pointer;color:var(--ink)}
+.ux-modal-x:hover{background:var(--line)}
+.ux-modal-body{overflow:auto;padding:var(--sp-3) var(--sp-4) var(--sp-4);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--sp-4) var(--sp-5)}
+.ux-keys-group h3{margin:0 0 var(--sp-2);font-size:var(--fs-md);font-weight:600;color:var(--accent)}
+.ux-keys-group dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) var(--sp-3);align-items:baseline}
+.ux-keys-group dt{white-space:nowrap}
+.ux-keys-group dd{margin:0;font-size:var(--fs-md);color:var(--sub)}
+.ux-keys-group kbd{font:inherit;font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-2);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:var(--r-sel);background:var(--surface-2)}

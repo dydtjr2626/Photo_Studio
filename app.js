@@ -7,16 +7,31 @@ const FREE_MIN = 0.5, FREE_MAX = 2.2;                                           
 const MARGIN = 0.04;            // 안전 여백(가장자리 4%)
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_TEXT = 300;
-const FONT = "'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif";
+const FONT = "'Pretendard','Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif";
 const DEFAULTS = { items: [], ratio: '1:1' };
-const FONTS = {   // 글꼴 목록(컴퓨터에 설치된 글꼴을 사용하므로 없으면 다음 글꼴로 대체됨)
-  gothic: ['고딕', FONT],
-  myeongjo: ['명조', "'Batang','Nanum Myeongjo','Noto Serif KR','AppleMyungjo','Times New Roman',serif"],
-  round: ['둥근', "'Gulim','Nanum Gothic','Arial Rounded MT Bold','Apple SD Gothic Neo',sans-serif"],
-  hand: ['손글씨', "'Nanum Pen Script','Segoe Script','Comic Sans MS','Apple SD Gothic Neo',cursive"],
+/* 글꼴 목록: [이름, CSS 글꼴 목록, 웹폰트 이름(있으면)]. 웹폰트는 index.html 의 Google Fonts 링크로 내려받아 PC마다 같은 모양으로 보이게 함
+ * (인터넷이 막혀 있으면 설치된 글꼴로 대체됨) */
+const FONTS = {
+  gothic: ['고딕', FONT, 'Noto Sans KR'],
+  myeongjo: ['명조', "'Noto Serif KR','Batang','Nanum Myeongjo','AppleMyungjo','Times New Roman',serif", 'Noto Serif KR'],
+  round: ['둥근', "'Jua','Gulim','Nanum Gothic','Arial Rounded MT Bold','Apple SD Gothic Neo',sans-serif", 'Jua'],
+  hand: ['손글씨', "'Nanum Pen Script','Segoe Script','Comic Sans MS','Apple SD Gothic Neo',cursive", 'Nanum Pen Script'],
   mono: ['타자기', "'D2Coding','Consolas','Courier New',monospace"],
+  black: ['굵은 제목', "'Black Han Sans','Noto Sans KR','Malgun Gothic',sans-serif", 'Black Han Sans'],
+  dohyeon: ['도현체', "'Do Hyeon','Noto Sans KR','Malgun Gothic',sans-serif", 'Do Hyeon'],
+  gaegu: ['귀여운 손글씨', "'Gaegu','Nanum Pen Script','Comic Sans MS',cursive", 'Gaegu'],
+  gowun: ['고운 돋움', "'Gowun Dodum','Noto Sans KR','Malgun Gothic',sans-serif", 'Gowun Dodum'],
+  brush: ['붓글씨', "'Nanum Brush Script','Nanum Pen Script','Segoe Script',cursive", 'Nanum Brush Script'],
 };
-const ITEM = { text: '', x: 50, y: 50, s: 7, color: '#111111', rot: 0, font: 'gothic', bgOn: false, bgColor: '#ffffff', bgClear: 0, sx: 1, sy: 1, op: 100, b: true, i: false, u: false, st: false, align: 'center', ls: 0, lh: 130 };   // op 글자 불투명도, b/i/u/st 굵게·기울임·밑줄·취소선, ls 글자 간격(글자 크기의 %), lh 줄 간격(%)   // bgClear: 배경 투명도 0(불투명)~100(완전 투명)   // rot: 기울기(도, 시계 방향)
+const fontReady = {};   // 웹폰트 이름 → true(받음) / 'loading' / 'fail'
+function needFont(key, text) {   // 아직 받지 않은 웹폰트를 내려받고, 다 받으면 다시 그림(받는 동안은 대체 글꼴로 보임)
+  const f = FONTS[key], name = f && f[2];
+  if (!name || fontReady[name] || !document.fonts || !document.fonts.load) return;
+  fontReady[name] = 'loading';
+  Promise.all([document.fonts.load(`800 40px "${name}"`, text || '가'), document.fonts.load(`400 40px "${name}"`, text || '가')])
+    .then(() => { fontReady[name] = true; draw(); }).catch(() => { fontReady[name] = 'fail'; });
+}
+const ITEM = { text: '', x: 50, y: 50, s: 7, color: '#111111', rot: 0, font: 'gothic', bgOn: false, bgColor: '#ffffff', bgClear: 0, sx: 1, sy: 1, op: 100, b: true, i: false, u: false, st: false, align: 'center', ls: 0, lh: 130, sh: 0, shColor: '#000000', ol: 0, olColor: '#ffffff', grad: false, color2: '#ff5a7a' };   // sh 그림자 세기(0=없음), ol 외곽선 굵기(글자 크기의 %), grad 두 색 그라디언트(color → color2, 위→아래)   // op 글자 불투명도, b/i/u/st 굵게·기울임·밑줄·취소선, ls 글자 간격(글자 크기의 %), lh 줄 간격(%)   // bgClear: 배경 투명도 0(불투명)~100(완전 투명)   // rot: 기울기(도, 시계 방향)
 
 /* ---------- 상태: 문구는 items 배열(처음엔 비어 있음) ---------- */
 const state = { ...DEFAULTS, photos: [], bg: null, bgColor: '#ffffff', adj: null, clear: 0, sel: null, editing: null };   // adj: 미리보기 전체에 거는 보정(사진을 하나도 선택하지 않았을 때의 '사진 보정'). null = 보정 없음   // photos: [{id, canvas, w, h, x, y, scale}]
@@ -29,7 +44,7 @@ const params = (st) => ({ items: JSON.parse(JSON.stringify(st.items)), ratio: st
 const selItem = () => state.items.find((i) => i.id === state.sel) || null;
 const selPhoto = () => state.photos.find((p) => p.id === state.sel) || null;
 
-/* ---------- 렌더 엔진 (미리보기와 내려받기가 같은 함수를 씁니다) ---------- */
+/* ---------- 렌더 엔진 (미리보기와 저장이 같은 함수를 씁니다) ---------- */
 function wrapLines(ctx, text, maxW) {
   const out = [];
   for (const para of text.split('\n')) {
@@ -64,23 +79,40 @@ function drawTemplate(ctx, bg, W, H) {
     ctx.drawImage(c, (W - dw) / 2, 0, dw, H);
   }
 }
-const frameInset =(st) => (st.bg ? 0 : Math.round((RATIOS[st.ratio] || RATIOS['1:1'])[0] * 0.006));   // 검정 테두리 두께
+const frameInset =(st) => (st.bg ? 0 : Math.round((RATIOS[st.ratio] || RATIOS['1:1'])[0] * (st.k || 1) * 0.006));   // 검정 테두리 두께 (st.k: 내보내기 배율, 미리보기는 1)
+const canvasDims = (st) => { const [w, h] = (RATIOS[st.ratio] || RATIOS['1:1']).map((v) => Math.round(v * (st.k || 1))), i = frameInset(st); return [w + 2 * i, h + 2 * i]; };   // 캔버스 = 출력 크기 + 검정 테두리 양쪽(저장하면 테두리를 잘라 정확히 1080 폭)
 
 /* ---------- 사진 보정 (밝기·대비·채도·따뜻함·흐림, 미리보기/내보내기 공통) ---------- */
-const ADJ0 = { br: 100, ct: 100, sa: 100, wm: 0, bl: 0 };
+const ADJ0 = { br: 100, ct: 100, sa: 100, wm: 0, bl: 0, hu: 0, cs: 0, cm: 0, ch: 0 };   // hu 색조 회전(°), cs/cm/ch 곡선(어두운 영역·중간톤·밝은 영역, -100~100)
+/* 곡선: CSS filter 로는 안 되는 톤 곡선을 보이지 않는 SVG <filter>(feComponentTransfer table) 로 만들어 ctx.filter = url(#id) 로 씀 */
+const curveIds = {};
+function curveFilterId(cs, cm, ch) {
+  const key = [cs, cm, ch].join('_'); if (curveIds[key]) return curveIds[key];
+  const NS = 'http://www.w3.org/2000/svg', id = 'psc_' + key.replace(/-/g, 'm');
+  let host = document.getElementById('psDefs');
+  if (!host) { const sv = document.createElementNS(NS, 'svg'); sv.setAttribute('width', '0'); sv.setAttribute('height', '0'); sv.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none'; sv.setAttribute('aria-hidden', 'true'); host = document.createElementNS(NS, 'defs'); host.id = 'psDefs'; sv.appendChild(host); document.body.appendChild(sv); }
+  const bump = (x, c) => { const t = Math.max(0, 1 - Math.abs(x - c) / 0.3); return t * t * (3 - 2 * t); };
+  const vals = []; for (let i = 0; i <= 16; i++) { const x = i / 16, y = x + (cs * bump(x, 0.22) + cm * bump(x, 0.5) + ch * bump(x, 0.78)) / 100 * 0.16; vals.push(Math.min(1, Math.max(0, y)).toFixed(4)); }
+  const f = document.createElementNS(NS, 'filter'); f.id = id; f.setAttribute('color-interpolation-filters', 'sRGB'); f.setAttribute('x', '0'); f.setAttribute('y', '0'); f.setAttribute('width', '100%'); f.setAttribute('height', '100%');
+  const t = document.createElementNS(NS, 'feComponentTransfer');
+  ['R', 'G', 'B'].forEach((c) => { const fn = document.createElementNS(NS, 'feFunc' + c); fn.setAttribute('type', 'table'); fn.setAttribute('tableValues', vals.join(' ')); t.appendChild(fn); });
+  f.appendChild(t); host.appendChild(f); return (curveIds[key] = id);
+}
 const PRESETS = [
   ['원본', {}], ['선명', { ct: 118, sa: 125 }], ['따뜻', { wm: 55, br: 104 }], ['차가움', { wm: -60, sa: 95 }],
   ['흑백', { sa: 0, ct: 110 }], ['빈티지', { wm: 70, sa: 80, ct: 92, br: 105 }], ['몽글', { bl: 3, br: 108, sa: 110 }],
 ];
-function adjFilter(a) {
+function adjFilter(a, k = 1) {   // k: 내보내기 배율(2x 로 저장할 때 흐림 픽셀도 같이 커짐)
   if (!a) return 'none';
   const v = { ...ADJ0, ...a }, f = [];
   if (v.br !== 100) f.push(`brightness(${v.br}%)`);
   if (v.ct !== 100) f.push(`contrast(${v.ct}%)`);
   if (v.sa !== 100) f.push(`saturate(${v.sa}%)`);
+  if (v.cs || v.cm || v.ch) f.push(`url(#${curveFilterId(Math.round(v.cs), Math.round(v.cm), Math.round(v.ch))})`);   // 곡선
+  if (v.hu) f.push(`hue-rotate(${v.hu}deg)`);                // 색조
   if (v.wm > 0) f.push(`sepia(${v.wm * 0.6}%)`);
   if (v.wm < 0) f.push(`hue-rotate(${v.wm * 0.25}deg)`);
-  if (v.bl > 0) f.push(`blur(${v.bl * 0.8}px)`);           // 출력 캔버스 픽셀 기준(해상도 고정이라 미리보기=내보내기)
+  if (v.bl > 0) f.push(`blur(${v.bl * 0.8 * k}px)`);       // 출력 캔버스 픽셀 기준(배율 k 를 곱해 미리보기=내보내기)
   return f.length ? f.join(' ') : 'none';
 }
 
@@ -100,7 +132,7 @@ function previewOf(p, pw) {
   }
   return p.prev;
 }
-const dropPrev = (p) => { if (p) p.prev = null; };    // 사진 픽셀이 제자리에서 바뀌면(붓·터치 보정) 사본을 버림
+const dropPrev = (p) => { if (p) { p.prev = null; p.ver = (p.ver || 0) + 1; } };    // 사진 픽셀이 제자리에서 바뀌면(붓·터치 보정) 사본을 버림. ver: 자동저장이 바뀐 사진만 다시 저장하려고 올리는 번호
 let interacting = false;                               // 끌기·크기 조절 중 여부
 function drawOrder(st) {                                            // 그리는 순서(아래→위). z가 없으면 사진은 아래, 문구·도형은 위 (z는 앞으로·뒤로 버튼으로 정해짐)
   const list = [];
@@ -113,12 +145,18 @@ const newPhotoZ = () => {                                           // 새 사�
   const pz = state.photos.filter((o) => Number.isFinite(o.z)).map((o) => o.z);
   return pz.length ? Math.max(...pz) + 0.5 : Math.min(...all) - 1;
 };
+/* 블렌드 모드(포토샵의 레이어 혼합 모드): globalCompositeOperation 값 */
+const BLENDS = [['normal', '일반'], ['multiply', '곱하기'], ['screen', '스크린'], ['overlay', '오버레이'], ['darken', '어둡게'], ['lighten', '밝게'], ['color-dodge', '색상 닷지'], ['color-burn', '색상 번'], ['hard-light', '하드 라이트'], ['soft-light', '소프트 라이트'], ['difference', '차이'], ['exclusion', '제외'], ['hue', '색조'], ['saturation', '채도'], ['color', '색상'], ['luminosity', '광도']];
+const blendOp = (b) => (b && b !== 'normal' && BLENDS.some((x) => x[0] === b) ? b : 'source-over');
+/* 사진을 모양으로 자르기(마스크): 사진 상자 안에서 SHAPES 경로로 잘라 보임. 원·하트·별 등은 짧은 변 기준 정비례, 사각형류는 상자 전체 */
+const MASKS = [['', '없음'], ['circle', '원'], ['round', '둥근 사각형'], ['heart', '하트'], ['star', '별'], ['triangle', '삼각형'], ['bubble', '말풍선']];
+const maskScale = (m, pw, ph) => (m === 'round' || m === 'rect' ? [pw, ph] : [Math.min(pw, ph), Math.min(pw, ph)]);
 const gTmp = document.createElement('canvas');                      // 전체 보정용 임시 캔버스(렌더 때마다 새로 만들지 않음)
 function render(canvas, st, engine = 'after', fast = false) {
-  const [W, H] = RATIOS[st.ratio] || RATIOS['1:1'];
+  const [W, H] = canvasDims(st);
   if (canvas.width !== W) canvas.width = W; if (canvas.height !== H) canvas.height = H;   // 크기가 같으면 다시 만들지 않음(fillRect로 전체를 덮음)
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = st.bgColor || '#fff'; ctx.fillRect(0, 0, W, H);          // 기본 배경: 흰색 + 검정 테두리 (투명 PNG도 불투명하게 합성)
+  if (st.transparent && !st.bg) ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = st.bgColor || '#fff'; ctx.fillRect(0, 0, W, H); }          // 투명 PNG 저장이면 배경색을 칠하지 않음. 기본 배경: 흰색 + 검정 테두리 (투명 PNG도 불투명하게 합성)
   if (st.bg) {
     drawTemplate(ctx, st.bg, W, H);
   }
@@ -138,8 +176,10 @@ function render(canvas, st, engine = 'after', fast = false) {
       const pv = fast ? previewOf(p, pw) : null, rot = num(p.rot, 0);
       if (rot) { ctx.save(); ctx.translate(px + pw / 2, py + ph / 2); ctx.rotate(rot * Math.PI / 180); ctx.translate(-(px + pw / 2), -(py + ph / 2)); }   // 사진 가운데를 기준으로 기울임
       ctx.globalAlpha = 1 - clampN(p.pclr, 0, 100, 0) / 100;       // 사진 투명도(0% = 그대로, 100% = 완전 투명)
+      ctx.globalCompositeOperation = blendOp(p.blend);                 // 혼합 모드(곱하기·스크린 …)
+      if (p.mask && SHAPES[p.mask]) { const [mw, mh] = maskScale(p.mask, pw, ph); ctx.beginPath(); ctx.save(); ctx.translate(px + pw / 2, py + ph / 2); ctx.scale(mw, mh); SHAPES[p.mask][1](ctx); ctx.restore(); ctx.clip(); }   // 모양 마스크
       if (pv) ctx.drawImage(pv, px, py, pw, ph);                // 필터가 이미 입혀진 사본
-      else { ctx.filter = adjFilter(p.adj); ctx.drawImage(p.canvas, px, py, pw, ph); ctx.filter = 'none'; }   // 사진별 보정 필터
+      else { ctx.filter = adjFilter(p.adj, st.k || 1); ctx.drawImage(p.canvas, px, py, pw, ph); ctx.filter = 'none'; }   // 사진별 보정 필터
       if (rot) ctx.restore();
       ctx.restore();
       res.boxes.push({ id: p.id, kind: 'photo', l: px, r: px + pw, t: py, b: py + ph, rot });
@@ -154,8 +194,8 @@ function render(canvas, st, engine = 'after', fast = false) {
   if (useP) {                                                       // 사진·템플릿·문구·도형 전부 한꺼번에 보정(밝기·대비·채도·따뜻함·흐림)과 투명도
     if (gTmp.width !== W) gTmp.width = W; if (gTmp.height !== H) gTmp.height = H;
     const t = gTmp.getContext('2d'); t.clearRect(0, 0, W, H); t.drawImage(canvas, 0, 0);
-    ctx.fillStyle = st.bgColor || '#fff'; ctx.fillRect(0, 0, W, H);
-    ctx.filter = useG ? adjFilter(st.adj) : 'none'; ctx.globalAlpha = 1 - clampN(st.clear, 0, 100, 0) / 100; ctx.drawImage(gTmp, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1;   // 전체 투명도는 배경색 위로 옅어지게 함
+    if (st.transparent && !st.bg) ctx.clearRect(0, 0, W, H); else { ctx.fillStyle = st.bgColor || '#fff'; ctx.fillRect(0, 0, W, H); }
+    ctx.filter = useG ? adjFilter(st.adj, st.k || 1) : 'none'; ctx.globalAlpha = 1 - clampN(st.clear, 0, 100, 0) / 100; ctx.drawImage(gTmp, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1;   // 전체 투명도는 배경색 위로 옅어지게 함
     drawFrame();
   }
   return res;
@@ -176,7 +216,7 @@ const SHAPES = {
 function drawShape(ctx, W, H, st) {      // 도형: 크기·색·불투명도·기울기·늘이기는 문구와 같은 항목을 씀
   const size = clampN(st.s, 2, 30, 7) / 100 * W * 3, sx = stretchOf(st.sx), sy = stretchOf(st.sy);
   const cx = num(st.x, 50) / 100 * W, cy = num(st.y, 50) / 100 * H, rot = num(st.rot, 0);
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * Math.PI / 180); ctx.scale(sx * size, sy * size);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * Math.PI / 180); ctx.scale(sx * size, sy * size); ctx.globalCompositeOperation = blendOp(st.blend);
   ctx.globalAlpha = clampN(st.op, 0, 100, 100) / 100; ctx.fillStyle = st.color || '#ff5a7a';
   ctx.beginPath(); (SHAPES[st.shape] || SHAPES.rect)[1](ctx); ctx.fill(); ctx.restore();
   const bw = size * sx, bh = size * sy;
@@ -189,7 +229,7 @@ function drawItem(ctx, W, H, st, engine) {
   const sizePct = fixed ? Math.min(30, Math.max(2, num(st.s, 7))) : st.s;
   let fontPx = sizePct / 100 * W;
   const m = MARGIN * W;
-  const fam = (FONTS[st.font] || FONTS.gothic)[1];
+  const fam = (FONTS[st.font] || FONTS.gothic)[1]; if (fixed) needFont(st.font, text);
   const weight = st.b === false ? 400 : 800, italic = fixed && st.i ? 'italic ' : '';
   const lsPct = fixed ? clampN(st.ls, -5, 30, 0) : 0, lhPct = fixed ? clampN(st.lh, 100, 250, 130) : 130;   // 글자 간격·줄 간격
   const bgOn = fixed && !!st.bgOn && text.trim() !== '';          // 글자 뒤 배경(빈 문구엔 그리지 않음)
@@ -216,7 +256,7 @@ function drawItem(ctx, W, H, st, engine) {
   const ax = align === 'left' ? -wMax / 2 : align === 'right' ? wMax / 2 : 0;   // 가장 긴 줄을 기준으로 왼쪽·가운데·오른쪽 맞춤
   ctx.textAlign = align; ctx.textBaseline = 'middle';
   const rot = fixed ? num(st.rot, 0) : 0;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * Math.PI / 180); ctx.scale(sx, sy);   // 글자 상자의 가운데를 기준으로 기울이고 늘임
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * Math.PI / 180); ctx.scale(sx, sy); if (fixed) ctx.globalCompositeOperation = blendOp(st.blend);   // 글자 상자의 가운데를 기준으로 기울이고 늘임
   if (bgOn) {
     ctx.fillStyle = /^#[0-9a-f]{6}$/i.test(st.bgColor) ? st.bgColor : '#ffffff';
     ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-bw0 / 2, -bh0 / 2, bw0, bh0, fontPx * 0.25); else ctx.rect(-bw0 / 2, -bh0 / 2, bw0, bh0);
@@ -224,8 +264,14 @@ function drawItem(ctx, W, H, st, engine) {
     ctx.fill();
   }
   ctx.globalAlpha = fixed ? clampN(st.op, 0, 100, 100) / 100 : 1; ctx.fillStyle = st.color || '#111111';   // 글자 불투명도
-  lines.forEach((l, i) => {                                                         // 테두리(윤곽) 없이 단색 글자만
+  const hexOk = (c, d) => (/^#[0-9a-f]{6}$/i.test(c) ? c : d);
+  if (fixed && st.grad) { const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2); g.addColorStop(0, hexOk(st.color, '#111111')); g.addColorStop(1, hexOk(st.color2, '#ff5a7a')); ctx.fillStyle = g; }   // 두 색 그라디언트(위→아래)
+  const shA = fixed ? clampN(st.sh, 0, 100, 0) : 0, olW = fixed ? clampN(st.ol, 0, 20, 0) / 100 * fontPx : 0;     // 그림자 세기·외곽선 굵기(px)
+  if (shA > 0) { ctx.shadowColor = hexOk(st.shColor, '#000000'); ctx.shadowBlur = shA / 100 * fontPx * 0.35; ctx.shadowOffsetX = ctx.shadowOffsetY = shA / 100 * fontPx * 0.08; }
+  if (olW > 0) { ctx.lineJoin = 'round'; ctx.miterLimit = 2; ctx.lineWidth = olW * 2; ctx.strokeStyle = hexOk(st.olColor, '#ffffff'); }   // 바깥쪽만 보이도록 글자 아래에 두 배 굵기로 먼저 그림
+  lines.forEach((l, i) => {                                                         // 외곽선(선택) → 글자
     const y = -th / 2 + lineH() * (i + 0.5);
+    if (olW > 0) ctx.strokeText(l, ax, y);
     ctx.fillText(l, ax, y);
     if (fixed && (st.u || st.st) && l.trim() !== '') {                              // 밑줄·취소선
       const w = ctx.measureText(l).width, x0 = align === 'left' ? ax : align === 'right' ? ax - w : ax - w / 2, t = Math.max(1, fontPx * 0.06);
@@ -233,7 +279,7 @@ function drawItem(ctx, W, H, st, engine) {
       if (st.st) ctx.fillRect(x0, y - t / 2 - fontPx * 0.02, w, t);
     }
   });
-  ctx.restore();
+  ctx.restore();   // (save/restore 가 그림자·외곽선 설정도 되돌림)
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   return { lines, blank, box: { l: cx - bw / 2, r: cx + bw / 2, t: cy - bh / 2, b: cy + bh / 2, rot }, fontPx };
 }
@@ -249,7 +295,7 @@ let freeW = 0;      // 자유형일 때 화면에 보이는 캔버스 가로(css
 let tool = 'move';   // 사진 도구: 'move'(이동·크기) | 'crop'(자르기) | 'brush'(붓 보정)
 let pending = false;
 const off = document.createElement('canvas'); off.getContext('2d');   // willReadFrequently 없이 먼저 만들어 둠 → 미리보기는 GPU 캔버스로 유지(매 프레임 GPU↔CPU 복사 방지)
-function paint() {   // 내려받기와 같은 방식(오프스크린 렌더)으로 그린 뒤 화면에 복사 → 미리보기 = 파일
+function paint() {   // 저장과 같은 방식(오프스크린 렌더)으로 그린 뒤 화면에 복사 → 미리보기 = 파일
   const r = render(off, state, 'after', interacting); lastBoxes = r.boxes;
   if (cv.width !== off.width) cv.width = off.width; if (cv.height !== off.height) cv.height = off.height;
   cv.getContext('2d').drawImage(off, 0, 0); drawSel(); syncLocks();
@@ -303,7 +349,7 @@ HANDLES.forEach(([x, y, cur]) => {
   const corner = x % 100 === 0 && y % 100 === 0, del = x === 100 && y === 0;   // 오른쪽 위 꼭짓점 = 삭제(X)
   const h = document.createElement('div'); h.className = 'hd' + (del ? ' del' : ''); h.style.left = x + '%'; h.style.top = y + '%';
   if (del) {
-    h.textContent = '×'; h.title = '삭제 (Ctrl+Z로 되살릴 수 있어요)'; h.setAttribute('aria-label', '삭제'); h.style.cursor = 'pointer';
+    h.textContent = '×'; h.title = '삭제 (Ctrl+Z로 되돌릴 수 있습니다)'; h.setAttribute('aria-label', '삭제'); h.style.cursor = 'pointer';
     h.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); });
     h.addEventListener('click', (e) => { e.stopPropagation(); removeSel(); });
     selEl.appendChild(h); return;
@@ -372,7 +418,7 @@ function syncUI() {
   if (ph) { $('ps').value = ph.scale; $('vps').textContent = Math.round(ph.scale) + '%'; }
   syncAdj(ph || state);                                            // 이미지를 고르지 않으면 '사진 보정'은 미리보기 전체에 적용
   { const oc = Math.round(ph ? num(ph.pclr, 0) : num(state.clear, 0)); $('pOp').value = oc; $('vpo').textContent = oc + '%';   // 사진 투명도: 선택한 사진 / 없으면 미리보기 전체
-    $('opTarget').textContent = ph ? '선택한 이미지에만 적용됩니다.' : '선택한 이미지가 없어서 미리보기 화면 전체에 적용됩니다.'; }
+    $('opTarget').textContent = ph ? '선택한 사진·그림에만 적용됩니다.' : '선택한 것이 없으면 미리보기 화면 전체에 적용됩니다.'; }
   $('imgPanel').classList.toggle('nophoto', !ph);                  // 이미지 패널은 항상 보임. 사진이 있어야 쓰는 도구만 흐리게·비활성
   document.querySelectorAll('#imgPanel .needphoto').forEach((e) => e.querySelectorAll('button,input').forEach((x) => { x.disabled = !ph; }));
   $('lockBtn').disabled = !((ph && !ph.locked) || (it && !it.locked));
@@ -429,12 +475,12 @@ function syncAdj(o) {
   const key = o === state ? 'global' : o.id;
   if (presetFor !== key) buildPresets(o);
   const a = { ...ADJ0, ...o.adj };
-  for (const k of Object.keys(ADJ0)) { $('adj-' + k).value = a[k]; $('v' + k).textContent = a[k] + (k === 'wm' || k === 'bl' ? '' : '%'); }
+  for (const k of Object.keys(ADJ0)) { $('adj-' + k).value = a[k]; $('v' + k).textContent = a[k] + (k === 'wm' || k === 'bl' || ['cs', 'cm', 'ch'].includes(k) ? '' : k === 'hu' ? '°' : '%'); }
   document.querySelectorAll('.preset').forEach((b) => {
     const pv = { ...ADJ0, ...PRESETS[b.dataset.i][1] };
     b.classList.toggle('on', Object.keys(ADJ0).every((k) => pv[k] === a[k]));
   });
-  $('adjTarget').textContent = o === state ? '선택한 이미지가 없어서 미리보기 화면 전체(이미지·템플릿·문구·도형)에 적용됩니다.' : '선택한 이미지에만 적용됩니다.';
+  $('adjTarget').textContent = o === state ? '선택한 것이 없으면 미리보기 화면 전체(사진·템플릿·문구·도형)에 적용됩니다.' : '선택한 사진·그림에만 적용됩니다.';
 }
 function scheduleGlobalThumbs() {                                   // 전체 보정 썸네일은 미리보기가 바뀐 뒤 잠깐 멈췄을 때 다시 만듦
   clearTimeout(gThumbT);
@@ -445,7 +491,7 @@ $('pOp').addEventListener('input', (e) => {                        // 사진 투
   checkpoint('pop' + (o.id || 'g')); if (o === state) state.clear = v; else o.pclr = v;
   syncUI(); paint();
 });
-document.querySelectorAll('#adjBox input[type=range]').forEach((r) => r.addEventListener('input', () => {
+document.querySelectorAll('#adjBox input[type=range][data-k]').forEach((r) => r.addEventListener('input', () => {   // data-k 가 있는 보정 슬라이더만(붓·터치 보정 슬라이더가 사진 보정 값을 바꾸던 문제 수정)
   const o = adjOwner();
   checkpoint('adj' + (o.id || 'g')); o.adj = { ...ADJ0, ...o.adj, [r.dataset.k]: Number(r.value) }; syncAdj(o); paint();
 }));
@@ -485,7 +531,7 @@ $('resetPhoto').addEventListener('click', () => {              // 사진 도구(
 $('fitPhoto').addEventListener('click', () => { const p = selPhoto(); if (p) { checkpoint(); p.scale = 100; p.x = 50; p.y = 50; syncUI(); paint(); } });
 
 function setTool(t) {
-  if (t === 'crop' || t === 'liquify') { const rp = selPhoto(); if (rp && rp.rot) { rp.rot = 0; toast('자르기·터치 보정은 기울기가 0°일 때만 쓸 수 있어 0°로 되돌렸습니다.'); } }
+  if (t === 'crop' || t === 'liquify') { const rp = selPhoto(); if (rp && rp.rot) { rp.rot = 0; toast('자르기·터치 보정을 위해 기울기를 0°로 되돌렸습니다.'); } }
   if (t !== 'move') endEdit();
   tool = t; endStroke();
   document.querySelectorAll('#toolSeg button').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
@@ -563,11 +609,11 @@ $('cropOk').addEventListener('click', () => {
   const cut = (src) => { const c = document.createElement('canvas'); c.width = sw; c.height = sh; c.getContext('2d').drawImage(src, sx, sy, sw, sh, 0, 0, sw, sh); return c; };
   ph.canvas = cut(ph.canvas); if (ph.orig) ph.orig = cut(ph.orig);
   ph.w = sw; ph.h = sh;
-  const [W, H] = RATIOS[state.ratio] || RATIOS['1:1'], ins = frameInset(state);   // 잘라낸 부분이 제자리·같은 배율로 남도록 위치·크기 보정
+  const [W, H] = canvasDims(state), ins = frameInset(state);   // 잘라낸 부분이 제자리·같은 배율로 남도록 위치·크기 보정
   ph.scale = Math.min(300, Math.max(10, k / Math.max((W - 2 * ins) / sw, (H - 2 * ins) / sh) * 100));
   ph.x = (crop.l + crop.r) / 2 / W * 100; ph.y = (crop.t + crop.b) / 2 / H * 100;
   presetFor = null; setTool('move'); syncUI(); paint();
-  setMsg('imgMsg', '사진을 잘랐습니다. "틀에 꽉 채우기"로 틀에 맞출 수 있고, "이전"으로 취소할 수 있습니다.', 'ok');
+  setMsg('imgMsg', '사진을 잘랐습니다. "테두리에 꽉 채우기"로 맞추거나 "되돌리기"로 취소할 수 있습니다.', 'ok');
 });
 
 /* 그리기: 사진 픽셀 위에 펜으로 그리거나 지우개로 지움 (사진 픽셀을 직접 수정) */
@@ -691,7 +737,7 @@ function brushMove(p) {
 document.addEventListener('keydown', (e) => {                       // Ctrl+Shift+X: 픽셀 유동화 켜기/끄기 (포토샵과 같은 단축키)
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
     e.preventDefault(); if (!selPhoto()) { toast('먼저 사진을 선택해 주세요.'); return; }
-    if (selPhoto().blank) { toast('빈 그림판에서는 터치 보정을 쓸 수 없습니다.'); return; }
+    if (selPhoto().blank) { toast('그림에서는 터치 보정을 쓸 수 없습니다.'); return; }
     setTool(tool === 'liquify' ? 'move' : 'liquify');
   }
 });
@@ -700,14 +746,14 @@ function endStroke() {
   clearInterval(stroke.timer); dropPrev(selPhoto()); { const sp = selPhoto(); if (sp) sp.bbox = undefined; } stroke = null; presetFor = null; const ph = selPhoto(); if (ph) syncAdj(ph); paint();
 }
 
-/* ---------- 누끼: 색 지우기(마술봉) · 투명 지우개 · 되살리기 · 올가미. 사진 픽셀을 투명하게 바꿈("이전"으로 취소) ---------- */
+/* ---------- 배경 지우기(누끼): 색 지우기(마술봉) · 투명 지우개 · 되살리기 · 올가미. 사진 픽셀을 투명하게 바꿈("이전"으로 취소) ---------- */
 const cut = { mode: 'wand', tol: 30, contig: true, size: 4, soft: 1, side: 'out' };   // tol 허용 오차(%), contig 연결된 부분만, size 지우개 지름(캔버스 가로의 %), soft 경계 부드럽게(0~10), side 올가미가 지울 쪽
 const lasso = { pts: [] };                                          // 올가미 점들(미리보기 캔버스 좌표)
 const cutHints = {
-  wand: '지우고 싶은 배경을 클릭하세요. 허용 오차를 올리면 비슷한 색까지 함께 지워집니다.',
-  erase: '끌어서 칠한 곳을 투명하게 지웁니다. [ ] 키로 크기를 바꿀 수 있어요.',
-  restore: '끌어서 지운 곳을 다시 살립니다(누끼를 따기 전 모습으로).',
-  lasso: '사물 둘레를 따라 점을 찍으세요. 처음 점을 다시 누르거나 더블클릭(Enter)하면 선택이 끝납니다. Esc는 취소.',
+  wand: '지울 배경을 클릭합니다. 비슷한 색 범위를 넓히면 더 많이 지워집니다.',
+  erase: '끌어서 칠한 곳을 투명하게 지웁니다. [ ] 키로 크기를 바꿀 수 있습니다.',
+  restore: '끌어서 지운 곳을 되살립니다.',
+  lasso: '지울 영역의 둘레에 점을 찍고, 처음 점을 누르거나 더블클릭(Enter)하면 완료됩니다. Esc는 취소.',
 };
 function syncCutUI() {
   document.querySelectorAll('#cutMode button').forEach((b) => b.classList.toggle('on', b.dataset.m === cut.mode));
@@ -717,7 +763,7 @@ function syncCutUI() {
   $('cutLassoBox').classList.toggle('hide', cut.mode !== 'lasso');
   $('cutContig').classList.toggle('on', cut.contig); $('cutContig').setAttribute('aria-pressed', cut.contig ? 'true' : 'false');
   $('vcutTol').textContent = cut.tol + '%'; $('vcutSize').textContent = Math.round(cut.size / 100 * 1080) + 'px'; $('vcutSoft').textContent = cut.soft;
-  $('cutSoftLbl').textContent = (cut.mode === 'erase' || cut.mode === 'restore') ? '가장자리 부드럽게' : '경계 부드럽게 (px)';
+  $('cutSoftLbl').textContent = (cut.mode === 'erase' || cut.mode === 'restore') ? '가장자리 부드럽게' : '경계 부드럽게';
   $('cutHint').textContent = cutHints[cut.mode];
   if (tool === 'cut') { layer.classList.toggle('brush', cut.mode === 'erase' || cut.mode === 'restore'); layer.classList.toggle('cross', cut.mode === 'wand' || cut.mode === 'lasso'); }
   if (cut.mode !== 'lasso') clearLasso();
@@ -813,7 +859,7 @@ function cutDown(p, e) {
   if (!ph.orig) ph.orig = cloneCanvas(ph.canvas);                   // 되살리기가 돌아갈 기준(누끼 따기 전 모습)
   endStroke(); pushHist(ph);
   if (cut.mode === 'wand') {
-    if (!wandCut(ph, (q.x - b.l) / k, (q.y - b.t) / k)) { ph.hist.pop(); toast('지울 부분이 없습니다. 이미 투명한 곳이거나 허용 오차가 너무 낮아요.'); refreshUndo(); return; }
+    if (!wandCut(ph, (q.x - b.l) / k, (q.y - b.t) / k)) { ph.hist.pop(); toast('지울 부분이 없습니다. 이미 투명하거나 비슷한 색 범위가 너무 좁습니다.'); refreshUndo(); return; }
     dropPrev(ph); presetFor = null; syncUI(); paint(); return;
   }
   stroke = { id: ph.id, last: q, cut: true };                       // 지우개·되살리기: 끌어서 칠함
@@ -854,7 +900,7 @@ let freeDrag = null, freeCenter = true;   // freeCenter: 위아래를 가운데 
     if (w < 120 || hh < 60) return;
     freeW = w; cv.style.width = w + 'px';
     const a = Math.min(FREE_MAX, Math.max(FREE_MIN, hh / w));      // 세로/가로 비율. 출력 가로는 1080 고정, 세로만 변함
-    RATIOS.free[1] = Math.round(RATIOS.free[0] * a);
+    { const i2 = frameInset(state); RATIOS.free[1] = Math.max(2, Math.round(a * (RATIOS.free[0] + 2 * i2) - 2 * i2)); }   // 캔버스(테두리 포함) 비율 a 에서 출력 세로를 역산
     if (center) {                                                   // 늘어난 높이의 절반만큼 화면을 스크롤해서 캔버스의 가운데가 제자리에 보이게 함
       paint(); const r = cv.getBoundingClientRect(), want = (r.top + r.bottom) / 2 - d.vCy0;   // 가운데가 화면에서 시작 위치보다 얼마나 내려갔는지(레이아웃이 어떻든 실제로 재서 보정). want>0: 내용을 위로 올려야 함
       const st = document.querySelector('.stage'); let pad = parseFloat(st.style.marginTop) || 0;
@@ -875,7 +921,7 @@ function toast(msg, kind = 'warn') {
 function setMsg(id, msg, kind) { const e = $(id); e.className = 'msg ' + kind; e.textContent = msg; }
 
 /* ---------- 입력 검증: 잘못된 값은 거부하고 기존 편집 내용을 유지 ---------- */
-const BOUNDS = { x: [0, 100], y: [0, 100], s: [2, 20], bgClear: [0, 100], op: [0, 100], ls: [-5, 30], lh: [100, 250] };
+const BOUNDS = { x: [0, 100], y: [0, 100], s: [2, 20], bgClear: [0, 100], op: [0, 100], ls: [-5, 30], lh: [100, 250], sh: [0, 100], ol: [0, 20] };
 function setParam(key, raw) {
   const bad = (m, kind = 'bad') => { setMsg('textMsg', m, kind); $('textMsg').classList.remove('hide'); syncUI(); return false; };
   if (key === 'ratio') { if (!RATIOS[raw]) return false; state.ratio = raw; save(); syncUI(); draw(); return true; }
@@ -887,7 +933,10 @@ function setParam(key, raw) {
     if (v.length > MAX_TEXT) { v = v.slice(0, MAX_TEXT); bad(`문구는 ${MAX_TEXT}자까지만 반영됩니다.`, 'warn'); }
     else $('textMsg').classList.add('hide');
     it.text = v;
-  } else if (['b', 'i', 'u', 'st'].includes(key)) {
+  } else if (key === 'blend') {
+    if (!BLENDS.some((b) => b[0] === raw)) return bad('지원하지 않는 혼합 모드라 이전 값을 유지합니다.');
+    it.blend = raw === 'normal' ? undefined : raw; $('textMsg').classList.add('hide');
+  } else if (['b', 'i', 'u', 'st', 'grad'].includes(key)) {
     it[key] = !!raw; $('textMsg').classList.add('hide');
   } else if (key === 'align') {
     if (!['left', 'center', 'right'].includes(raw)) return bad('지원하지 않는 정렬이라 이전 값을 유지합니다.');
@@ -898,15 +947,15 @@ function setParam(key, raw) {
   } else if (key === 'bgOn') {
     it.bgOn = !!raw; $('textMsg').classList.add('hide');
   } else if (key === 'bgColor') {
-    if (!/^#[0-9a-f]{6}$/i.test(String(raw))) return bad(`배경색 코드 '${raw}'는 #rrggbb 형식이 아니어서 이전 색을 유지합니다.`);
+    if (!/^#[0-9a-f]{6}$/i.test(String(raw))) return bad('올바른 색이 아니어서 이전 배경색을 유지합니다.');
     it.bgColor = String(raw).toLowerCase(); $('textMsg').classList.add('hide');
-  } else if (key === 'color') {
-    if (!/^#[0-9a-f]{6}$/i.test(String(raw))) return bad(`색 코드 '${raw}'는 #rrggbb 형식이 아니어서 이전 색을 유지합니다.`);
-    it.color = String(raw).toLowerCase(); $('textMsg').classList.add('hide');
+  } else if (['color', 'shColor', 'olColor', 'color2'].includes(key)) {
+    if (!/^#[0-9a-f]{6}$/i.test(String(raw))) return bad('올바른 색이 아니어서 이전 색을 유지합니다.');
+    it[key] = String(raw).toLowerCase(); $('textMsg').classList.add('hide');
   } else {
     const n = typeof raw === 'string' && raw.trim() === '' ? NaN : Number(raw);
     const [lo, hi] = BOUNDS[key];
-    if (!Number.isFinite(n) || n < lo || n > hi) return bad(`'${raw}'은(는) 허용 범위(${lo}~${hi})를 벗어나 이전 값을 유지합니다.`);
+    if (!Number.isFinite(n) || n < lo || n > hi) return bad(`${lo}~${hi} 범위의 값만 쓸 수 있어 이전 값을 유지합니다.`);
     it[key] = n; $('textMsg').classList.add('hide');
   }
   save(); syncUI(); draw(); return true;
@@ -927,8 +976,8 @@ document.querySelectorAll('.ratio').forEach((b) => b.addEventListener('click', (
 /* ---------- 전체 되돌리기·다시 실행 (문구·도형·사진의 위치/크기/보정·배경). 사진 픽셀 작업(자르기·붓·회전)은 사진별 '이전' 기록을 씀 ---------- */
 let SEQ = 0, docHist = [], docRedo = [], lastCk = { key: '', t: 0 };
 const DOC_MAX = 100;
-const snapDoc = () => ({ seq: ++SEQ, items: JSON.stringify(state.items), adj: state.adj ? { ...state.adj } : null, clear: num(state.clear, 0), photos: state.photos.map((p) => ({ p, x: p.x, y: p.y, scale: p.scale, rot: num(p.rot, 0), pclr: num(p.pclr, 0), z: p.z, locked: !!p.locked, adj: p.adj ? { ...p.adj } : p.adj })), bgColor: state.bgColor, bg: state.bg, sel: state.sel });
-const docKey = (d) => d.items + '|' + JSON.stringify(d.adj) + '|' + d.clear + '|' + d.photos.map((o) => [o.p.id, o.x, o.y, o.scale, o.rot, o.pclr, o.z, o.locked, JSON.stringify(o.adj)].join()).join(';') + '|' + d.bgColor + '|' + (d.bg ? d.bg.id : '');
+const snapDoc = () => ({ seq: ++SEQ, items: JSON.stringify(state.items), adj: state.adj ? { ...state.adj } : null, clear: num(state.clear, 0), photos: state.photos.map((p) => ({ p, x: p.x, y: p.y, scale: p.scale, rot: num(p.rot, 0), pclr: num(p.pclr, 0), z: p.z, locked: !!p.locked, blend: p.blend, mask: p.mask, adj: p.adj ? { ...p.adj } : p.adj })), bgColor: state.bgColor, bg: state.bg, sel: state.sel, ratio: state.ratio, freeH: RATIOS.free[1] });
+const docKey = (d) => d.items + '|' + JSON.stringify(d.adj) + '|' + d.clear + '|' + d.photos.map((o) => [o.p.id, o.x, o.y, o.scale, o.rot, o.pclr, o.z, o.locked, o.blend, o.mask, JSON.stringify(o.adj)].join()).join(';') + '|' + d.bgColor + '|' + (d.bg ? d.bg.id : '') + '|' + d.ratio + '|' + d.freeH;
 function checkpoint(key = '') {                 // 바꾸기 직전 상태를 기록
   const now = Date.now();
   if (key && key === lastCk.key && now - lastCk.t < 800) { lastCk.t = now; return; }   // 슬라이더를 끄는 동안은 한 번만 기록
@@ -939,7 +988,8 @@ function checkpoint(key = '') {                 // 바꾸기 직전 상태를 �
 function restoreDoc(d) {
   endEdit(); revealedLock = null;
   state.items = JSON.parse(d.items); state.adj = d.adj ? { ...d.adj } : null; state.clear = num(d.clear, 0);
-  state.photos = d.photos.map((o) => { Object.assign(o.p, { x: o.x, y: o.y, scale: o.scale, rot: o.rot, pclr: o.pclr, z: o.z, locked: o.locked, adj: o.adj }); return o.p; });
+  state.photos = d.photos.map((o) => { Object.assign(o.p, { x: o.x, y: o.y, scale: o.scale, rot: o.rot, pclr: o.pclr, z: o.z, locked: o.locked, blend: o.blend, mask: o.mask, adj: o.adj }); return o.p; });
+  if (d.ratio && RATIOS[d.ratio]) { state.ratio = d.ratio; RATIOS.free[1] = d.freeH || RATIOS.free[1]; }   // 화면비·자동 재배치도 되돌림
   state.bgColor = d.bgColor; state.bg = d.bg; $('bgPick').value = state.bgColor; renderTplButtons();
   state.sel = [...state.items, ...state.photos].some((q) => q.id === d.sel && !q.locked) ? d.sel : null;   // 잠긴 사진은 선택하지 않음
   if (tool !== 'move' && !selPhoto()) setTool('move');
@@ -1035,7 +1085,7 @@ function showStickers(name) {                                     // 분류 버�
   });
 }
 Object.keys(STICKER_CATS).forEach((name) => {
-  const b = document.createElement('button'); b.type = 'button'; b.className = 'catbtn'; b.dataset.cat = name; b.textContent = name; b.title = STICKER_CATS[name].length + '개';
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'catbtn'; b.dataset.cat = name; b.textContent = name; b.title = '스티커 ' + STICKER_CATS[name].length + '개';
   b.addEventListener('click', () => showStickers(name)); $('stickerCats').appendChild(b);
 });
 showStickers(stickerCat);
@@ -1043,7 +1093,7 @@ showStickers(stickerCat);
 /* ---------- 배경색 (템플릿 대신 단색 배경) ---------- */
 $('bgPick').addEventListener('input', (e) => {
   checkpoint('bgc'); state.bgColor = e.target.value;
-  if (state.bg) { state.bg = null; renderTplButtons(); setMsg('tplMsg', '단색 배경을 적용하려고 템플릿을 해제했습니다.', 'ok'); }
+  if (state.bg) { state.bg = null; renderTplButtons(); setMsg('tplMsg', '템플릿 배경을 해제하고 단색을 적용했습니다.', 'ok'); }
   draw();
 });
 
@@ -1077,8 +1127,8 @@ document.addEventListener('keydown', (e) => {
     if (k === 'v') { e.preventDefault(); setTool('move'); return; }
     if (k === 'c' || k === 'b' || k === 'e') {
       e.preventDefault();
-      if (!ph) { toast('먼저 사진이나 그림판을 선택해 주세요.'); return; }
-      if (k === 'c' && ph.blank) { toast('빈 그림판은 자를 수 없습니다.'); return; }
+      if (!ph) { toast('먼저 사진이나 그림을 선택해 주세요.'); return; }
+      if (k === 'c' && ph.blank) { toast('그림은 자를 수 없습니다.'); return; }
       if (k === 'c') setTool('crop');
       else { setTool('brush'); document.querySelector('#brushMode [data-m="' + (k === 'e' ? 'erase' : 'pen') + '"]').click(); }
       return;
@@ -1086,7 +1136,7 @@ document.addEventListener('keydown', (e) => {
     if (k === 'w' || k === 'l') {                                    // W 색 지우기(마술봉) · L 올가미 — 누끼
       e.preventDefault();
       if (!ph) { toast('먼저 사진을 선택해 주세요.'); return; }
-      if (ph.blank) { toast('빈 그림판에는 누끼를 쓸 수 없습니다.'); return; }
+      if (ph.blank) { toast('그림에는 배경 지우기를 쓸 수 없습니다.'); return; }
       setTool('cut'); cut.mode = k === 'w' ? 'wand' : 'lasso'; syncCutUI(); return;
     }
     if (k === 't') { e.preventDefault(); $('newText').focus(); return; }
@@ -1131,7 +1181,7 @@ function syncLocks() {                                              // 잠긴 �
       btn.addEventListener('click', (e) => { e.stopPropagation(); const cur = [...state.photos, ...state.items].find((o) => o.id === id); if (!cur) return; checkpoint(); cur.locked = false; revealedLock = null; state.sel = id; syncUI(); paint(); toast('잠금을 해제했습니다.', 'ok'); });
       layer.appendChild(btn); lockBtns.set(q.id, btn);
     }
-    btn.title = (q.name || (q.shape ? SHAPES[q.shape][0] : q.text ? String(q.text).slice(0, 8) : '이미지')) + ' 잠금 해제'; btn.setAttribute('aria-label', btn.title);
+    btn.title = (q.name || (q.shape ? SHAPES[q.shape][0] : q.text ? String(q.text).slice(0, 8) : '사진')) + ' 잠금 해제'; btn.setAttribute('aria-label', btn.title);
     btn.style.left = `calc(${x / cv.width * 100}% - ${off}px)`; btn.style.top = (y / cv.height * 100) + '%';
     keep.add(q.id);
   });
@@ -1141,7 +1191,7 @@ $('lockBtn').addEventListener('click', () => {
   const tg = selItem() || selPhoto(); if (!tg || tg.locked) return;
   endEdit(); endStroke(); if (tool !== 'move') setTool('move');
   checkpoint(); tg.locked = true; revealedLock = null; state.sel = null; syncUI(); paint();
-  toast('잠금: 움직일 수 없습니다. 잠긴 항목을 클릭하면 오른쪽 위에 나타나는 자물쇠 아이콘으로 해제할 수 있습니다.', 'ok');
+  toast('잠갔습니다. 잠긴 항목을 클릭하면 나타나는 자물쇠 아이콘으로 해제합니다.', 'ok');
 });
 
 /* ---------- 문구 추가·입력칸·끌어서 이동 ---------- */
@@ -1175,7 +1225,7 @@ function removeSel() { if (!selItem() && !selPhoto()) return; const id = state.s
 function bakeStretch(p) {                                            // 끌어서 늘인 가로·세로 배율을 사진 픽셀(canvas·orig)에 굳힘 → 이후 도구·저장이 같은 모양을 씀. 화면에 보이는 크기는 scale을 보정해 그대로 유지
   const fx = num(p.dsx, 1), fy = num(p.dsy, 1); p.dsx = 1; p.dsy = 1;
   if (Math.abs(fx - 1) < 0.005 && Math.abs(fy - 1) < 0.005) { paint(); return; }
-  const [W, H] = RATIOS[state.ratio] || RATIOS['1:1'], ins = frameInset(state), cover = (w, h) => Math.max((W - 2 * ins) / w, (H - 2 * ins) / h);
+  const [W, H] = canvasDims(state), ins = frameInset(state), cover = (w, h) => Math.max((W - 2 * ins) / w, (H - 2 * ins) / h);
   const nw = Math.min(6000, Math.max(8, Math.round(p.w * fx))), nh = Math.min(6000, Math.max(8, Math.round(p.h * fy)));
   const kOld = cover(p.w, p.h);
   endStroke(); pushHist(p);                                         // "이전"으로 취소할 수 있게 먼저 기록
@@ -1206,7 +1256,8 @@ newText.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKe
 /* 삭제 확인 창: 취소 / 삭제 */
 const dlg = $('dlg');
 function confirmDelete(msg, onOk, title = '삭제하기', okLabel = '삭제') {   // 삭제·닫기 확인창 공용
-  $('dlgTitle').textContent = title; $('dlgOk').textContent = okLabel; $('dlgMsg').textContent = msg; dlg.classList.add('on'); $('dlgCancel').focus();
+  $('dlgTitle').textContent = title; $('dlgOk').textContent = okLabel; $('dlgOk').classList.toggle('safe', !/삭제|닫기/.test(okLabel));   // 삭제·닫기만 빨간 버튼, 복구·열기는 파란 버튼
+  $('dlgMsg').textContent = msg; dlg.classList.add('on'); $('dlgCancel').focus();
   const close = () => { dlg.classList.remove('on'); $('dlgOk').onclick = $('dlgCancel').onclick = null; document.removeEventListener('keydown', onKey, true); };
   const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
   document.addEventListener('keydown', onKey, true);
@@ -1216,7 +1267,7 @@ function confirmDelete(msg, onOk, title = '삭제하기', okLabel = '삭제') { 
 dlg.addEventListener('pointerdown', (e) => { if (e.target === dlg) $('dlgCancel').click(); });   // 바깥을 누르면 취소
 $('delText').addEventListener('click', () => {
   if (!selItem() && !selPhoto()) return;
-  confirmDelete(selItem() ? (selItem().shape ? '선택한 도형을 삭제할까요?' : '선택한 텍스트를 삭제할까요?') : '선택한 사진을 삭제할까요?', removeSel);
+  confirmDelete(selItem() ? (selItem().shape ? '선택한 도형을 삭제할까요?' : '선택한 문구를 삭제할까요?') : (selPhoto().blank ? '선택한 그림을 삭제할까요?' : '선택한 사진을 삭제할까요?'), removeSel);
 });
 inp.addEventListener('input', () => { const it = selItem(); if (!it) return; it.text = inp.value; inp.style.height = 'auto'; inp.style.height = inp.scrollHeight + 'px'; save(); });
 inp.addEventListener('keydown', (e) => { if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') { e.preventDefault(); endEdit(); } });
@@ -1315,6 +1366,7 @@ layer.addEventListener('pointermove', (e) => {
   const it = state.items.find((i) => i.id === drag.id) || state.photos.find((i) => i.id === drag.id); if (!it) return;
   it.x = Math.min(100, Math.max(0, (p.x - drag.dx) / cv.width * 100));
   it.y = Math.min(100, Math.max(0, (p.y - drag.dy) / cv.height * 100));
+  if (window.alignSnap) window.alignSnap(it, e);                // (align.js) 중앙·가장자리 스냅 + 가이드 선(Shift/Alt: 해제)
   draw();                                                       // 프레임당 한 번만 그림
 });
 layer.addEventListener('pointerleave', () => { brushCur.style.display = 'none'; if (!drag && !resizing && !rotating && !scaling) selEl.classList.remove('show'); });
@@ -1330,27 +1382,30 @@ function sniff(b) {
   if (b.length >= 8 && eq([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'PNG';
   if (b.length >= 3 && eq([0xff, 0xd8, 0xff])) return 'JPEG';
   if (b.length >= 6 && String.fromCharCode(...b.slice(0, 3)) === 'GIF') return 'GIF';
+  if (b.length >= 4 && String.fromCharCode(...b.slice(0, 4)) === '8BPS') return 'PSD';
   if (b.length >= 12 && String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'WEBP';
   if (b.length >= 2 && b[0] === 0x42 && b[1] === 0x4d) return 'BMP';
   if (b.length >= 4 && String.fromCharCode(...b.slice(0, 4)) === '%PDF') return 'PDF';
   return null;
 }
 async function loadFile(file) {
-  const fail = (why) => { setMsg('imgMsg', `거부됨: ${file.name} — ${why} 기존 작업은 그대로 유지됩니다.`, 'bad'); syncUI(); return { ok: false, why }; };
+  const fail = (why) => { setMsg('imgMsg', `불러오지 못했습니다: ${file.name} — ${why} 작업 중인 내용은 그대로입니다.`, 'bad'); syncUI(); return { ok: false, why }; };
   if (!file || file.size === 0) return fail('빈 파일(0바이트)입니다.');
   if (file.size > MAX_BYTES) return fail(`파일이 너무 큽니다(${(file.size / 1048576).toFixed(1)}MB, 최대 20MB).`);
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   const kind = sniff(head);
-  if (kind !== 'PNG' && kind !== 'JPEG') return fail(kind ? `지원하지 않는 형식(${kind})입니다. PNG·JPEG만 불러올 수 있습니다.` : '이미지 파일이 아니거나 알 수 없는 형식입니다. PNG·JPEG만 불러올 수 있습니다.');
+  if (kind === 'PSD' && window.PSImport) return window.PSImport.psd(file, fail);                                   // PSD: 레이어를 사진으로 가져옴(pro.js)
+  if ((file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) && window.PSImport) return window.PSImport.svg(file, fail);   // SVG: 사진(래스터)으로 가져옴
+  if (kind !== 'PNG' && kind !== 'JPEG') return fail(kind ? `지원하지 않는 형식(${kind})입니다. PNG·JPEG·SVG·PSD 만 불러올 수 있습니다.` : '사진 파일이 아니거나 알 수 없는 형식입니다. PNG·JPEG·SVG·PSD 만 불러올 수 있습니다.');
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
-  catch (e) { return fail('이미지 데이터가 손상되어 열 수 없습니다.'); }
+  catch (e) { return fail('사진 데이터가 손상되어 열 수 없습니다.'); }
   const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
   c.getContext('2d').drawImage(bmp, 0, 0);                  // 재인코딩 경로: 원본 EXIF·텍스트 청크는 버려짐
   endEdit(); checkpoint();
   const ph = { id: uid(), canvas: c, w: bmp.width, h: bmp.height, x: 50, y: 50, scale: 100, name: file.name, z: newPhotoZ() };
   state.photos.push(ph); state.sel = ph.id;
-  setMsg('imgMsg', `사진 추가됨: ${file.name} (${kind}, ${bmp.width}×${bmp.height}) — 메타데이터 제거됨. 지금 ${state.photos.length}장입니다.`, 'ok');
+  setMsg('imgMsg', `사진을 추가했습니다: ${file.name} (${kind}, ${bmp.width}×${bmp.height}) · 카메라 정보 등은 제거했습니다.`, 'ok');
   syncUI(); paint(); return { ok: true, kind };
 }
 $('file').addEventListener('change', async (e) => { for (const f of [...e.target.files]) await loadFile(f); e.target.value = ''; });
@@ -1358,7 +1413,10 @@ $('file').addEventListener('change', async (e) => { for (const f of [...e.target
 const cw = document.querySelector('.canvaswrap');
 cw.addEventListener('dragover', (e) => e.preventDefault());
 cw.addEventListener('drop', async (e) => { e.preventDefault(); for (const f of e.dataTransfer.files) await loadFile(f); });
-$('clearImg').addEventListener('click', () => { endEdit(); checkpoint(); state.photos = []; if (!selItem()) state.sel = null; setMsg('imgMsg', '사진을 삭제했습니다.', 'ok'); syncUI(); paint(); });
+$('clearImg').addEventListener('click', () => {
+  const n = state.photos.length; if (!n) { toast('삭제할 사진이나 그림이 없습니다.'); return; }
+  endEdit(); confirmDelete(`모든 사진·그림 ${n}개를 삭제할까요? 삭제한 뒤에도 되돌리기(Ctrl+Z)로 복구할 수 있습니다.`, () => { checkpoint(); state.photos = []; if (!selItem()) state.sel = null; setMsg('imgMsg', '모든 사진·그림을 삭제했습니다.', 'ok'); syncUI(); paint(); });
+});
 
 /* ---------- 합성 샘플 이미지 (저작권·메타데이터 없음) ---------- */
 function synth(w, h, alpha) {
@@ -1380,7 +1438,7 @@ async function sampleFile(kind) {
 }
 document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => loadFile(await sampleFile(b.dataset.sample))));
 
-/* ---------- 내려받기 + 미리보기 대조 ---------- */
+/* ---------- 저장 + 미리보기 대조 ---------- */
 function hasMetadata(bytes) {
   const s = new TextDecoder('latin1').decode(bytes);
   return /Exif|eXIf|tEXt|iTXt|zTXt|XML:com\.adobe/.test(s);
@@ -1401,25 +1459,47 @@ function diff(a, b) {
   }
   return { count, mean: sum / (a.length / 4) };
 }
-async function exportAs(type) {
+/* 저장 옵션: 크기 배율(1x·2x·3x)과 JPEG 품질. 메뉴에서 바꾸고 다음 방문에도 기억 */
+const exportOpt = { k: 1, q: 92 };
+try { const o = JSON.parse(localStorage.getItem('ps-export') || '{}'); if ([1, 2, 3].includes(o.k)) exportOpt.k = o.k; if (o.q >= 50 && o.q <= 100) exportOpt.q = Math.round(o.q); } catch (e) { /* 저장소 차단 */ }
+const saveExportOpt = () => { try { localStorage.setItem('ps-export', JSON.stringify(exportOpt)); } catch (e) { /* 무시 */ } };
+/** 검정 테두리 안쪽만 잘라 낸 저장용 캔버스. st 는 state 모양이면 무엇이든(다른 카드도) 가능. opt: {k 배율, transparent 투명 배경} */
+function buildExport(st, opt = {}) {
+  const s = { ...st, k: opt.k || 1, transparent: !!opt.transparent, editing: null };
+  const t = document.createElement('canvas'); render(t, s, 'after', false);
+  const ins = frameInset(s), iw = t.width - 2 * ins, ih = t.height - 2 * ins;
+  const ex = document.createElement('canvas'); ex.width = iw; ex.height = ih;
+  ex.getContext('2d').drawImage(t, ins, ins, iw, ih, 0, 0, iw, ih);
+  return ex;
+}
+const fmtBytes = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
+const stamp = () => { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; };
+async function exportAs(type, o = {}) {
   const ext = type === 'image/png' ? 'png' : 'jpg';
+  const k = o.k || exportOpt.k, transparent = !!o.transparent && ext === 'png' && !state.bg;
+  if (o.transparent && state.bg) toast('템플릿 배경은 투명하게 저장할 수 없어 배경을 포함해 저장합니다.');
   endEdit(); paint();                                            // 입력 중이던 문구 확정 + 대기 중인 갱신 반영
+  try { if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]); } catch (e) { /* 글꼴 대기 실패는 무시 */ }   // 웹폰트를 다 받은 뒤에 그림
+  paint();
+  const plain = k === 1 && !transparent;                         // 미리보기와 픽셀 단위로 비교할 수 있는 기본 저장
   const ins = frameInset(state), iw = off.width - 2 * ins, ih = off.height - 2 * ins;
-  const ex = document.createElement('canvas'); ex.width = iw; ex.height = ih;                // 검정 테두리 안쪽만 잘라서 저장
-  ex.getContext('2d').drawImage(off, ins, ins, iw, ih, 0, 0, iw, ih);
-  const pv = cv.getContext('2d').getImageData(ins, ins, iw, ih).data;
-  const rt = await roundtrip(ex, type, 0.92);
-  const d = diff(pv, rt.data);
+  const ex = buildExport(state, { k, transparent });
+  const pv = plain ? cv.getContext('2d').getImageData(ins, ins, iw, ih).data : null;
+  const rt = await roundtrip(ex, type, exportOpt.q / 100);
+  const d = plain ? diff(pv, rt.data) : null;
   const bytes = new Uint8Array(await rt.blob.arrayBuffer());
   const meta = hasMetadata(bytes);
   const url = URL.createObjectURL(rt.blob);
-  const a = document.createElement('a'); a.href = url; a.download = `zzal_${state.ratio.replace(':', 'x')}_${Date.now()}.${ext}`; a.click();
-  const okPixels = ext === 'png' ? d.count === 0 : d.mean < 4;
+  const fname = `photo-studio_${state.ratio.replace(':', 'x')}${k > 1 ? '@' + k + 'x' : ''}${transparent ? '_투명' : ''}_${stamp()}.${ext}`;
+  const a = document.createElement('a'); a.href = url; a.download = fname; a.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const okPixels = !plain || (ext === 'png' ? d.count === 0 : d.mean < 4);
+  const good = okPixels && !meta, sizeTxt = `${rt.canvas.width}×${rt.canvas.height} ${ext.toUpperCase()} · ${fmtBytes(rt.blob.size)}`;
   $('cmpBox').classList.remove('hide');
-  setMsg('cmpMsg', `${rt.canvas.width}×${rt.canvas.height} ${ext.toUpperCase()} · 미리보기와 차이 ${ext === 'png' ? d.count + '픽셀' : '평균 ' + d.mean.toFixed(2)} · 메타데이터 ${meta ? '발견됨' : '없음'} → ${okPixels && !meta ? '일치' : '불일치'}`, okPixels && !meta ? 'ok' : 'bad');
-  const mini = document.createElement('canvas'); mini.width = iw; mini.height = ih; mini.getContext('2d').drawImage(cv, ins, ins, iw, ih, 0, 0, iw, ih);
+  setMsg('cmpMsg', good ? `저장했습니다: ${fname} (${sizeTxt})${plain ? ' · 미리보기와 똑같이 저장됨' : transparent ? ' · 배경 투명' : ' · ' + k + '배 크기'} · 카메라 정보 등 개인정보 없음` : (meta ? '저장한 파일에 카메라 정보 등이 남아 있습니다.' : '저장 결과가 미리보기와 다릅니다.'), good ? 'ok' : 'bad');
+  toast(good ? `저장했습니다 · ${sizeTxt}` : '저장했지만 확인이 필요합니다. 아래 비교를 열어 보세요.', good ? 'ok' : 'warn');
+  const mini = document.createElement('canvas'); mini.width = rt.canvas.width; mini.height = rt.canvas.height; mini.getContext('2d').drawImage(ex, 0, 0);
   $('cmpA').replaceChildren(mini);
-  const im = new Image(); im.src = url; $('cmpB').replaceChildren(im);
+  const im = new Image(); im.src = URL.createObjectURL(rt.blob); $('cmpB').replaceChildren(im);
 }
 /* 창 막대의 ✕ → 사이트 닫기 (브라우저가 탭 닫기를 막으면 빈 페이지로 이동해서 꺼진 것처럼 만듦) */
 const closeSite = () => { window.close(); setTimeout(() => { if (!window.closed) location.replace('about:blank'); }, 150); };
@@ -1437,7 +1517,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMen
 $('loadImg').addEventListener('click', () => $('file').click());
 let blankSeq = 0;
 function addBlankCanvas() {                                         // 투명한 빈 그림판(틀 안쪽 크기)을 새 그림으로 추가하고 바로 그리기 도구로 전환 — 여러 개 만들 수 있음
-  const [W, H] = RATIOS[state.ratio], i = frameInset(state), c = document.createElement('canvas');
+  const [W, H] = canvasDims(state), i = frameInset(state), c = document.createElement('canvas');
   c.width = Math.max(2, Math.round(W - 2 * i)); c.height = Math.max(2, Math.round(H - 2 * i));
   endEdit(); checkpoint();
   const ph = { id: uid(), canvas: c, w: c.width, h: c.height, x: 50, y: 50, scale: 100, name: '그림 ' + (++blankSeq), blank: true, z: newPhotoZ() };   // blank: 빈 그림판(사진 보정·자르기·터치 보정 등은 숨김)
@@ -1460,7 +1540,18 @@ function renderLayerList() {                                        // 그림 �
   });
 };   // 사진 파일 선택창
 $('saveAsPng').addEventListener('click', () => exportAs('image/png'));
+$('saveAsPngT').addEventListener('click', () => exportAs('image/png', { transparent: true }));
 $('saveAsJpg').addEventListener('click', () => exportAs('image/jpeg'));
+document.querySelectorAll('#expScale button').forEach((b) => b.addEventListener('click', () => { exportOpt.k = Number(b.dataset.k); saveExportOpt(); syncExportUI(); }));
+$('expQ').addEventListener('input', (e) => { exportOpt.q = Number(e.target.value); saveExportOpt(); syncExportUI(); });
+function syncExportUI() {
+  document.querySelectorAll('#expScale button').forEach((b) => { const on = Number(b.dataset.k) === exportOpt.k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  $('expQ').value = exportOpt.q; $('vexpQ').textContent = exportOpt.q + '%';
+  const w = RATIOS[state.ratio] || RATIOS['1:1']; $('expSize').textContent = `${Math.round(w[0] * exportOpt.k)}×${Math.round(w[1] * exportOpt.k)} px`;
+}
+syncExportUI();
+$('saveBtn').addEventListener('click', syncExportUI);
+$('saveMenu').querySelector('.opts').addEventListener('click', (e) => e.stopPropagation());   // 옵션을 만져도 메뉴가 닫히지 않게
 
 /* ---------- 배경 템플릿 (공포·사랑스러움·생일) ---------- */
 const TEMPLATES = [
@@ -1486,8 +1577,8 @@ function renderTplButtons() {
     const im = document.createElement('img'); im.src = encodeURI(t.src); im.alt = t.name;
     b.append(im, t.name); b.addEventListener('click', () => pickTemplate(t)); $('tplRow').appendChild(b);
   });
-  const off = document.createElement('button'); off.className = 'btn'; off.textContent = '템플릿 삭제';
-  off.addEventListener('click', () => { checkpoint(); state.bg = null; renderTplButtons(); setMsg('tplMsg', '템플릿을 삭제했습니다.', 'ok'); draw(); });
+  const off = document.createElement('button'); off.className = 'btn'; off.textContent = '배경 해제';
+  off.addEventListener('click', () => { checkpoint(); state.bg = null; renderTplButtons(); setMsg('tplMsg', '배경을 해제했습니다.', 'ok'); draw(); });
   $('tplRow').appendChild(off);
 }
 async function pickTemplate(t) {
@@ -1495,7 +1586,7 @@ async function pickTemplate(t) {
   try { state.bg = await loadTemplate(t); }
   catch (e) { setMsg('tplMsg', e.message, 'bad'); return; }
   renderTplButtons(); draw();
-  setMsg('tplMsg', `'${t.name}' 템플릿이 배경으로 적용되었습니다. 내려받으면 템플릿 + 내 사진 + 문구가 함께 저장됩니다.`, 'ok');
+  setMsg('tplMsg', `'${t.name}' 템플릿을 배경으로 적용했습니다.`, 'ok');
 }
 /* ---------- 템플릿 JSON 내보내기·가져오기 ----------
  * 형식: { "format": "photo-studio-templates", "version": 1, "templates": [{ "id", "name", "src", "y0", "y1" }], "selected": "id" | null }
@@ -1541,7 +1632,7 @@ function exportTemplates() {
   const data = { format: TPL_FORMAT, version: 1, templates: TEMPLATES.map(({ id, name, src, y0, y1 }) => ({ id, name, src, y0, y1 })), selected: state.bg ? state.bg.id : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'photo-studio-templates.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast(`템플릿 ${TEMPLATES.length}개를 JSON으로 내려받았습니다.`, 'ok');
+  toast(`템플릿 ${TEMPLATES.length}개를 JSON 파일로 내보냈습니다.`, 'ok');
 }
 $('tplExport').addEventListener('click', exportTemplates);
 $('tplImport').addEventListener('click', () => $('tplFile').click());

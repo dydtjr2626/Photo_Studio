@@ -18,7 +18,7 @@ node server.js     # static server → http://localhost:8000
 
 ## Files
 
-- `index.html` — all markup and CSS (inline `<style>`); element IDs are looked up directly by `app.js` via `$('id')`, so renaming an ID breaks the script. Make sure line 1 is `<!doctype html>` (a stray character before it puts the page in quirks mode).
+- `index.html` — all markup (CSS moved out, see UI 개편 below); element IDs are looked up directly by `app.js` via `$('id')`, so renaming an ID breaks the script. Make sure line 1 is `<!doctype html>` (a stray character before it puts the page in quirks mode).
 - `app.js` — all logic, one plain script (no modules), organized in banner-comment sections.
 - `server.js` — static file server.
 - Images: `공포.jpg`, `사랑스러움.jpg`, `생일.png` (templates), `logo.png` (512×512, currently unused — the top "Photo Studio" logo banner was removed).
@@ -66,3 +66,47 @@ node server.js     # static server → http://localhost:8000
 
 - Files in this folder have been modified from outside the session more than once (lost edits, stray characters at the start of `index.html` and this file). After editing, check that changes persisted and that the first line of each file is intact.
 - Verification so far has been headless (puppeteer-core with real Chrome against `localhost:8000`); real-GPU drag smoothness is unverified.
+
+## UI 개편 (2026-11) — 파일 구조와 바뀐 용어
+
+- **CSS 분리** (로드 순서 = 우선순위): `style.css`(디자인 토큰 `:root` + 전체 스킨; `--accent #2A64F0`, `--accent-ink`, `--danger`, `--r-*` 반경 4/8/12/16/999, `--fs-*` 12/14/16/20, `--shadow-1/2` 두 단계만) → `layout.css`(헤더 `.ps-head`, 비율 라벨, 이미지 패널 접힘 `.nophoto`, 도크) → `features.css`(빈 상태 오버레이·치트시트·힌트) → `a11y.css`(포커스 링, 터치 44px, reduced-motion). 하드코딩 색 대신 토큰을 쓸 것. 파랑 accent 하나·빨강 danger 하나, 유리/그라디언트/큰 그림자 금지.
+- **추가 스크립트**(app.js 뒤 순서대로): `ux.js`(빈 상태 오버레이, `?` 단축키 시트 — `window.UX_KEYS_EXTRA`로 그룹 병합, 선택 힌트, beforeunload), `zoom.js`(미리보기 줌 10~400%·팬·상태바 `#zoomBar`, `window.__onPaint` 훅, paint/syncUI 래핑; `#cv`의 CSS 표시 크기만 바꾸므로 export 불변), `a11y.js`(aria-label/pressed 동기화, 메뉴·다이얼로그 키보드, 스킵 링크, 스티커 로빙 tabindex), `align.js`(`#alignBar` 정렬 6종 + X/Y/너비/높이/회전 수치 입력, 드래그 중 중앙·가장자리 스냅+가이드 — app.js 의 layer pointermove 에 `window.alignSnap` 한 줄 훅, Alt+화살표 0.1% 이동, 새 문구·도형·스티커 3%씩 대각선 오프셋). 정렬 바는 선택이 있을 때만 보인다.
+- **헤더**: `.wbar.ps-head` 에 불러오기·저장하기(`#loadBtn/#saveBtn` 와 메뉴가 독에서 헤더로 이동)·단축키·✕. 독에는 잠금·안내선만 남음(잠금은 선택 시에만 보임).
+- **용어 통일**: 이전→되돌리기, 복사→복제(Ctrl+J), 이미지→사진(빈 캔버스는 그림), 텍스트→문구(삭제 버튼은 '선택 삭제'), 누끼→배경 지우기, 올가미→영역 선택, 터치 보정 모드 '밀기', 템플릿 삭제→배경 해제, '사진 삭제'→'사진·그림 모두 삭제'(확인창 추가). 위 본문 중 옛 용어(이전/복사/누끼/올가미 등)는 같은 기능을 가리킨다. 다운로드 파일명 접두사는 `photo-studio_`.
+- **알려진 한계/미해결**: 회전 핸들 더블클릭 → 0° 는 pointer capture 때문에 실제 마우스에서 동작하지 않을 수 있음(`#resetRot` 사용); 자동저장·다중 카드·웹폰트·레이어 목록(사진·문구 통합)은 없음; 줌 중 자르기/그리기/배경 지우기는 코드상 비율 좌표라 동작할 것으로 보나 실조작 미검증; 실기기 터치·실 GPU 드래그 미검증.
+- **병렬 작업 주의**: 여러 에이전트가 동시에 편집할 때는 파일 소유자를 나눌 것(CSS/스크립트가 파일별로 나뉜 이유). 브라우저 탭 상한이 있어 검증 후 반드시 탭을 닫을 것.
+- **출력 크기(수정됨)**: 캔버스는 `canvasDims(st)` = 출력 크기(`RATIOS`, 1080 폭) + 검정 프레임 양쪽 `frameInset`(6px, 템플릿 배경이면 0). 프레임을 잘라 저장하므로 PNG/JPEG 은 항상 정확히 1080×1080 / 1080×1350 / 1080×1920(자유형은 1080×높이). 그래서 화면 캔버스 자체는 1092×1092 처럼 12px 크다. `RATIOS` 는 '출력(안쪽) 크기'로 취급하고, 캔버스 크기가 필요하면 `canvasDims` 를 쓸 것.
+- **가운데 열 폭 = 캔버스 폭(여백 없음)**: `zoom.js` 의 `fitColumn()` 이 paint 마다 `#editor` 의 `--ccol` 을 `min(560, max(414, 46vh × 캔버스 가로/세로))` 로 설정하고(줌·자유형은 560), `style.css` 의 `.grid` 가 가운데 열에 `var(--ccol)` 을 쓴다. `.stage` 는 `.wbody` 패딩을 상쇄(`margin-inline:-var(--sp-4)`)해 캔버스가 창 양옆에 붙고, 열이 좁으면(`.ps-narrow`) 헤더 제목은 숨긴다. 캔버스 높이 상한은 `#cv{max-height:46vh}` — 바꾸면 `fitColumn` 의 0.46 도 함께 바꿀 것.
+- **페이지 좌우 여백 없음**: `.wrap` 은 `max-width:none; padding-inline:0` 이고 `.grid` 는 `justify-content:space-between` + 오른쪽 열 `minmax(0,420px)` (왼쪽 300px, 가운데 `--ccol`). 패널이 화면 가장자리에 붙는 것이 의도.
+- **컨트롤 재배치(캔버스 키우기)**: `layout.js`(마지막 로드)가 ID 그대로 요소만 옮긴다 — 캔버스 위 한 줄 툴바 `.ps-tools`(줌 `#zOut/#zPct/#zIn/#zFit/#z100` + 편집 `#dupBtn/#undoBtn/#lockBtn/#guideBtn`), 캔버스 아래는 상태 한 줄(`#zoomBar` 의 `#zRes/#zSel`), `#alignBar` 와 `.ux-hint` 는 `aside.main` 맨 위. 옛 `.orderbar`/`.dock` 은 `.ps-gone`(숨김; 독 안에 숨은 파일 입력이 있어 DOM 에는 남김). 캔버스 높이 상한은 `#cv{max-height:max(240px,calc(100vh - 296px))}` 이고 `zoom.js` 의 `fitColumn()` 이 같은 296 을 쓴다 — 툴바 아래 `margin-bottom:44px` 는 선택 시 캔버스 위로 튀어나오는 회전 핸들(`.rh`) 자리이므로 줄이지 말 것. 가운데 열은 `min(780, max(480, min(양옆 패널을 뺀 폭, 높이에서 계산한 캔버스 폭)))`.
+- **넓은 화면의 가운데 빈 공간**: 양쪽 패널 폭은 `minmax(300px,520px)` / `minmax(420px,720px)` 로 남는 폭을 나눠 먹는다(캔버스는 높이에 묶여 더 못 커지므로). 1920폭에서 열 사이 간격은 24px. `zoom.js fitColumn` 의 `avail` 은 최소폭(300/420) 기준이므로 패널 min 을 바꾸면 함께 바꿀 것.
+- **[최신] 컨트롤은 전부 왼쪽 사이드 맨 위**: `layout.js` 가 헤더(`.wbar.ps-head`: 로고 제목·불러오기·저장하기·단축키·✕), 화면비(`.react`), 툴바(`.ps-tools`)를 `.ps-sidetop` 으로 묶어 `aside.side` 맨 위에 넣는다(요소·ID 그대로 이동). 가운데 `.window` 는 캔버스 + 상태 한 줄뿐이고, 캔버스 높이 상한은 `#cv{max-height:max(240px,calc(100vh - 124px))}`(`zoom.js fitColumn` 의 124 와 같아야 함; `.wbody` 위 패딩 44px 는 회전 핸들 자리). ≤900px 에서는 `.ps-sidetop` 만 matchMedia 로 `#editor` 의 캔버스 앞으로 올라간다(`grid-area:top`). 1250px 이하: `"side preview" / "side main"` 2열. 가운데 열은 신축하지 않는 고정 폭 `var(--ccol)`(minmax(0,…)로 두면 양옆 패널에 눌려 쪼그라듦). 위의 '컨트롤 재배치' 항목 중 캔버스 아래 상태 줄 외 `.ps-tools` 위치·296 숫자·`margin-bottom:44px` 설명은 이 항목으로 대체된다.
+- **모서리**: `--r-sel:2px; --r-btn:4px; --r-card:4px; --r-panel:0; --r-pill:4px` — 패널은 네모, 버튼·칩은 4px. 둥근 곡선(알약/16px)으로 되돌리지 말 것.
+
+
+## 디자인팀 피드백 반영 (2026-11-27)
+
+- **새 스크립트**(layout.js 뒤 순서): `extras.js`(글자 효과 UI·HEX/스포이트/브랜드 색·레이어 목록·Ctrl+C/V), `project.js`(여러 장 카드·자동저장·프로젝트 파일·ZIP). 둘 다 app.js 의 전역(`state`, `setParam`, `syncUI` 등)을 그대로 쓰고, `syncUI` 를 감싸 새 컨트롤을 동기화한다(zoom.js 와 같은 방식). **`app.js` 의 `exportAs`·`paint`·`syncUI` 를 여러 스크립트가 감싸므로 시그니처를 바꾸지 말 것.**
+- **글자 효과**: 문구 항목에 `sh`(그림자 0–100)/`shColor`, `ol`(외곽선, 글자 크기의 %)/`olColor`, `grad`+`color2`(위→아래 그라디언트)가 추가됨(`drawItem`, 모두 `setParam` 경유, `BOUNDS`). 기본값은 꺼짐이라 옛 항목·템플릿에 영향 없음.
+- **웹폰트**: `FONTS` 는 `[이름, CSS 스택, 웹폰트 이름]` 10종. `index.html` 의 Google Fonts `<link>` 로 받고(인터넷이 없으면 설치 글꼴로 대체), `needFont()` 가 canvas 에서 쓰기 전에 `document.fonts.load` 후 다시 그림. `exportAs`/ZIP 은 `document.fonts.ready` 를 기다림. 서버(`server.js`)는 관여하지 않음.
+- **저장 옵션**: `exportOpt = {k: 1|2|3, q: 50–100}`(localStorage `ps-export`). `buildExport(st, {k, transparent})` 가 `render` 에 `st.k`(배율: `canvasDims`·`frameInset`·blur 가 곱함)와 `st.transparent`(단색 배경일 때 배경색을 안 칠함)를 넘겨 저장용 캔버스를 만든다. 기본(1x·불투명) 저장만 미리보기와 픽셀 비교(`diff`)를 하고, 비교 박스는 `<details>` 로 접혀 있음. 저장 메뉴에 `#saveAsPngT`(투명 PNG), `#saveZip`, `#prjSave`, 옵션 `.opts` 추가.
+- **카드(페이지)**: 지금 카드는 `state`, 나머지는 `project.js` 의 `pages[]`(문구·사진 캔버스 참조·배경·화면비·`docHist`). `stash()`→`applyPage()` 로 전환. `PSProject` 로 노출. 왼쪽 위 `.ps-pages` 막대(+ 새 카드·복제·삭제, 최대 30장).
+- **자동저장**: IndexedDB `photo-studio`/`kv`/`autosave`(사진은 PNG Blob). `window.__onPaint` 후크 → 서명(`sigOf`)이 바뀌면 2.5초 뒤 저장. 사진 픽셀 변경은 `dropPrev()` 가 올리는 `p.ver` 로 감지(픽셀을 바꾸는 코드는 `pushHist`/`endStroke` 를 거쳐야 함). 시작할 때 이전 작업이 있으면 복구창(`confirmDelete` ‘복구’)이 뜨고, 창이 닫힐 때까지 자동저장은 꺼져 있음. `ux.js` 의 beforeunload 경고는 `window.__autosaved` 면 건너뜀.
+- **프로젝트 파일**: `{format:"photo-studio-project", version:1, cur, pages:[{ratio,freeH,bgColor,bg,adj,clear,items,photos:[{…,png,orig}]}]}`(사진은 data URL, 300MB 제한). 열기는 모든 카드를 읽어 성공해야 교체하고 실패하면 기존 작업 유지.
+- **레이어 목록**: `#layerPanel`(오른쪽 맨 위). 사진·그림·문구·도형을 그리는 순서대로(위=앞) 보여주고 ▲▼(`moveLayer`: 순서를 `z` 로 굳힘, 되돌리기 가능)·잠금·삭제. 옛 ‘앞으로/뒤로 UI 제거’ 항목은 이 패널로 대체됨.
+- **붙여넣기**: 클립보드 이미지(Ctrl+V)는 `loadFile` 로, Ctrl+C 로 복사한 선택 항목은 Ctrl+V 로 복제(`duplicateSel`).
+- **레이아웃**: 1000–1250px 에서도 3열 유지, `.side` 는 더 이상 sticky/스크롤 상자가 아님(페이지와 함께 스크롤), 사이트 닫기(✕)는 왼쪽 패널 맨 아래 글자 버튼(`layout.js` 가 이동), 화면비 라벨 줄바꿈 방지. 확인창의 확인 버튼은 삭제·닫기만 빨강(`#dlgOk.safe` 는 파랑).
+- **아직 안 한 것**: 모바일·터치 레이아웃(검증 안 함), 화면비를 바꿀 때 글자 자동 재배치(위치는 % 라 같은 비율 위치에 남음), 카드별 썸네일, 템플릿 y0/y1 슬라이더 편집 UI, 그라디언트 배경.
+
+
+## 포토샵·Express 격차 기능 (2026-11-27 2차)
+
+- **새 스크립트**: `pro.js`(자동 리사이즈·모든 화면비 ZIP·PDF·SVG·PSD 입출력), `multi.js`(다중 선택). 로드 순서: …align → **multi** → layout → extras → project → **pro**. `multi.js` 는 `.ps-edit` 를 `load` 이벤트 뒤에 찾는다(layout.js 가 나중에 만들기 때문).
+- **혼합 모드·마스크**: 사진·문구·도형에 `blend`(`BLENDS`, `globalCompositeOperation`), 사진에 `mask`(`MASKS`: SHAPES 경로로 사진 상자 안을 자름; 원·하트 등은 짧은 변 기준). `snapDoc/docKey/restoreDoc` 에 포함되어 되돌릴 수 있고, 같은 스냅샷에 `ratio·freeH` 도 들어가 화면비 변경·자동 재배치도 Ctrl+Z 로 돌아간다.
+- **보정 확장**: `ADJ0` 에 `hu`(색조°)·`cs/cm/ch`(곡선: 어두운 영역·중간톤·밝은 영역). 곡선은 `curveFilterId()` 가 숨은 SVG `<filter>`(feComponentTransfer table, sRGB)를 만들고 `adjFilter` 가 `url(#psc_…)` 로 쓴다(Chromium·Firefox 의 ctx.filter 에서 동작 확인은 Chromium 만). 색상별 HSL·채널별 곡선은 CSS/SVG 필터로 불가능해서 없음. (예전 버그 수정: `#adjBox` 의 모든 range 에 보정 핸들러가 걸려 붓·터치 슬라이더가 `adj.undefined` 를 만들던 것 → `data-k` 있는 것만.)
+- **자동 리사이즈**: 화면비 버튼을 누를 때 `pro.js` 가 `setParam` 을 감싸 `reflow()` 로 y 만 옮김(가로 1080 고정이라 x·글자 크기 불변). 가장자리 근처는 가장자리까지의 거리(px)를, 가운데는 비율을 지키는 단조 함수(`reflowY`). 빈 그림판(`blank`)은 제외. 토글 `#reflowBtn`(localStorage `ps-reflow`). `saveAllRatios` 는 같은 재배치 규칙으로 1:1·4:5·9:16 을 폴더별 ZIP 으로 저장(`window.PSZip`).
+- **PDF**: 카드마다 JPEG(`exportOpt.q`) 한 쪽, 손으로 만든 PDF 1.4(xref 검증함). **SVG**: `buildSvg` — 문구는 `<text>`(줄바꿈 결과를 줄별로, 그림자·외곽선·그라디언트 포함), 도형은 `shapeD()` 로 기록한 path, 사진은 `<image>`(data URL, 마스크·혼합·보정 필터 포함). 전체 보정(`state.adj`)·전체 투명도는 미반영. SVG 가져오기는 벡터가 아니라 사진으로 래스터화.
+- **PSD**: `psdBytes` 가 8비트 RGB 레이어 PSD(raw 압축, 레이어마다 투명 영역 잘라냄, 혼합 키·유니코드 이름 `luni` 포함)를 쓰고 Pillow 로 열림·레이어 영역·픽셀을 검증함(Photoshop 으로는 미확인). 가져오기 `parsePsd` 는 8비트 RGB·raw/RLE 만 지원하고 레이어를 사진으로 만든다(숨김 레이어 제외, 레이어 마스크·텍스트·스마트 오브젝트·조정 레이어·효과는 이미지로만 들어오거나 무시됨; ZIP 압축·16비트·CMYK·PSB 는 거부).
+- **다중 선택**(`multi.js`): `PSMulti.ids`. Shift/Ctrl+클릭(또는 `#multiMode` 토글 = 터치용)으로 더하고 빼기, 빈 곳 끌기 = 범위 선택, Ctrl+A. 선택 묶음을 끌면 함께 이동(캡처 단계에서 앱의 단일 드래그를 가로챔), 방향키·Ctrl+J·Delete·Esc 도 묶음 전체에 적용. 오른쪽 `#multiBar`: 선택 영역/프레임 기준 정렬 6종, 가로·세로 간격 같게(3개 이상), 복제·잠금·삭제. 다중 선택 중에는 단일용 `#alignBar` 와 `#sel` 핸들이 숨는다.
+- **스마트 가이드**: `align.js` 의 `alignSnap` 이 다른 항목의 중심·가장자리(틀을 가득 채운 큰 사진 제외)에도 스냅하고 파란 가이드를 그린다(같은 간격 가이드는 없음).
+- **모바일·터치**: 터치 핸들 26px·버튼 키움·좁은 화면에서 제목 숨김. 실기기 터치·두 손가락 확대/축소는 미검증/미지원.

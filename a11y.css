@@ -1,0 +1,71 @@
+/* a11y.css — 접근성·반응형 (마지막 로드 → 우선) */
+:root{--focus:var(--accent)}
+
+/* (2) 포커스 링 */
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.dock :focus-visible,.glass :focus-visible,.canvaswrap :focus-visible,#sel :focus-visible,#dlg :focus-visible{outline:3px solid var(--focus);outline-offset:2px;box-shadow:0 0 0 2px var(--surface)}
+#layer:focus-visible{outline:3px solid #fff;outline-offset:-3px;box-shadow:inset 0 0 0 6px var(--focus)}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:1px;box-shadow:inset 0 0 0 2px var(--surface)}
+input[type=range]:focus-visible{outline-offset:4px}
+.savemenu li:focus-visible{outline:3px solid var(--focus);outline-offset:-3px;background:var(--accent-tint)}
+
+/* (5) 켜짐 상태: 색 외 단서 */
+.btn.on,.seg button.on,#bgToggle.on,#freeCenter.on,#cutContig.on,.react .btn.on,.catbtn.on{font-weight:600}
+#freeCenter.on::before,#cutContig.on::before{content:"✓ ";font-weight:700}
+.seg button.on,.react .btn.on{box-shadow:inset 0 -3px 0 currentColor,var(--shadow-1)}
+
+/* (8) 대비 보정 */
+.hint,.msg,.wbar,.wbar span{color:var(--sub)}
+.app{color:var(--ink)}
+
+/* (9) 작은 글씨 → --fs-sm 이상 (모바일 --fs-md) */
+.wbar,.hint,.preset,.seg.sm button,.seg button,.app,.val,small,.msg,.catbtn{font-size:var(--fs-sm)}
+@media(max-width:900px){.wbar,.hint,.preset,.seg.sm button,.seg button,.app,.val,small,.msg,.catbtn,label,.btn,.pbtn{font-size:var(--fs-md)}}
+
+/* (1) 좁은 화면 가로 넘침 방지 */
+html,body{max-width:100%}
+html{overflow-x:clip}
+.side,.main,.window,.panel,.in,.wbody{min-width:0}
+@media(max-width:900px){
+  .wrap{padding-left:0;padding-right:0}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .window{position:static}
+  .shapes,#stickerRow,#shapeRow{flex-wrap:wrap}
+  #stickerCats{flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:var(--sp-1);scrollbar-width:thin}
+  #stickerCats>*{flex:0 0 auto}
+  .dock{flex-wrap:wrap;width:auto;max-width:100%;box-sizing:border-box;justify-content:center;gap:var(--sp-3)}
+  .react{flex-wrap:wrap;width:auto;max-width:100%;box-sizing:border-box;border-radius:var(--r-card)}
+  .presets{max-width:100%;overflow-x:auto}
+  .cmp{flex-wrap:wrap}
+  .cmp figure{min-width:0;max-width:100%}
+  .canvaswrap,#cv{max-width:100%}
+}
+
+/* (4) 터치 대상 44px */
+@media(pointer:coarse){
+  .btn,.pbtn,.adjreset,.seg button,.react .btn,.catbtn,.tplbtn,.preset,.app,.savemenu li,#layerList button,#stickerCats>*,.swatches button,.wclose,#zOut,#zIn,#zFit,#z100,#undoBtn,#guideBtn,.ux-keys-btn,.ux-empty-sub,#resetPhoto,#adjReset,#addText,#delText,#bgPick{min-height:44px;min-width:44px}
+  .shapes>*{min-height:44px;min-width:44px}
+  input[type=range]{min-height:44px;touch-action:pan-y}
+  input[type=color]{min-height:44px;min-width:44px}
+  select,input[type=text],textarea{min-height:44px}
+  #sel .hd::after,#sel .rh::before,#cropBox .hd::after{content:'';position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%);border-radius:var(--r-pill)}
+  #layer .fh::after{content:'';position:absolute;left:50%;top:50%;min-width:44px;min-height:44px;width:100%;height:100%;transform:translate(-50%,-50%)}
+}
+
+/* (10) 모션 최소화 */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
+
+
+.sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+.react .ps-rl,.ps-rl{font-size:var(--fs-sm);opacity:.85}
+
+/* 데스크톱 보정 초기화 버튼 */
+.adjreset{min-height:24px}
+@media(pointer:coarse){.adjreset{min-height:44px}}
+
+/* 스킵 링크: 포커스 시에만 보임 */
+.skip-link{position:absolute;left:8px;top:-60px;z-index:10000;padding:10px 16px;background:var(--surface,#fff);color:var(--ink,#000);border:2px solid var(--focus);border-radius:8px;font-size:var(--fs-md,16px);text-decoration:none}
+.skip-link:focus{top:8px}

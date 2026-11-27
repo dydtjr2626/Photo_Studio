@@ -1,0 +1,267 @@
+/* layout.css — 정보구조/레이아웃 (style.css 뒤에 로드). 값은 style.css :root 토큰만 사용 */
+
+/* ── 앱 헤더 (.wbar 재구성) ── */
+.wbar.ps-head{position:relative;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);font-size:var(--fs-md);color:var(--ink);background:var(--surface);border-bottom:1px solid var(--line)}
+.ps-head .ps-title{order:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-weight:700;font-size:var(--fs-lg);letter-spacing:-.01em}
+.ps-actions{order:1;display:flex;align-items:center;gap:var(--sp-2);flex:none}
+.ps-head .app{flex-direction:row;gap:var(--sp-2);height:36px;min-width:36px;justify-content:center;padding:0 var(--sp-3);border-radius:var(--r-btn);font-size:var(--fs-md);font-weight:600;white-space:nowrap;color:var(--ink);background:var(--surface-2);border:1px solid var(--line)}
+.ps-head .app .tile{width:18px;height:18px;border:0;border-radius:0;background:none}   /* 아이콘 칩 배경 제거(이중 칩 방지) */
+.ps-head .app svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.75}
+.ps-head .app:hover .tile{transform:none}
+.ps-head .app:hover{background:var(--line)}
+.ps-head .app .tile,.ps-head .app:hover .tile,.ps-head .app .t-green,.ps-head .app:hover .t-green{background:none;border:0}
+.ps-head .app.ps-save{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-ink)}   /* 이웃과 같은 크기, 색만 살짝 강조 */
+.ps-head .app.ps-save svg,.ps-head .app.ps-save .t-green svg{stroke:currentColor}
+.ps-head .app.ps-save:hover{background:var(--accent-tint);border-color:var(--accent-hover);color:var(--accent-hover)}
+/* 단축키(ux.js 가 맨 끝에 붙임): 저장하기 옆, ✕ 앞으로 */
+.ps-head .ux-keys-btn{order:2;margin-left:0;flex:none;height:36px;padding:0 var(--sp-3);white-space:nowrap;font-weight:600;font-size:var(--fs-md);border-radius:var(--r-btn);color:var(--ink);background:var(--surface-2);border-color:var(--line)}
+.ps-head .ux-keys-btn:hover{background:var(--line)}
+/* ✕ : 위험 동작이라 평소엔 회색, hover/focus 에서만 빨강. 44px 터치 영역 */
+.wbar .wclose.ps-close{order:3;width:36px;min-width:36px;height:36px;padding:0;display:grid;place-items:center;flex:none;font-size:var(--fs-lg);color:var(--sub);border-radius:var(--r-btn)}
+.wbar .wclose.ps-close:hover,.wbar .wclose.ps-close:focus-visible{background:var(--danger);color:#fff}
+/* 헤더 메뉴(저장·불러오기) */
+.ps-actions{position:relative}   /* 메뉴는 저장하기 버튼 오른쪽 끝에 맞춰 바로 아래 */
+.ps-head .savemenu{display:none;position:absolute;top:calc(100% + var(--sp-2));right:0;width:min(300px,92vw);z-index:30;border-radius:var(--r-card);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow-2)}
+.ps-head .savemenu.open{display:block}
+.savemenu .menu li{min-height:40px;padding:0 var(--sp-4);font-size:var(--fs-md);border-bottom:0}
+.savemenu .menu li#tplImport,.savemenu .menu li#tplExport,.savemenu .menu li.del{border-top:1px solid var(--line)}   /* JSON·삭제 항목 위 구분선 */
+.savemenu .menu svg{width:18px;height:18px;stroke-width:1.75;flex:none}
+
+/* ── 화면비 버튼: 용도 라벨 ── */
+.react{flex-wrap:wrap;margin-bottom:var(--sp-2);padding:var(--sp-1) var(--sp-2)}
+.react .btn.ratio{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;min-height:44px;padding:var(--sp-1) var(--sp-3)}
+.react .btn .ps-rl{font-size:var(--fs-sm);font-weight:500;opacity:1;color:var(--sub)}   /* 보조 라벨도 불투명 + 대비 4.5:1 이상 */
+.react .btn.on .ps-rl{color:var(--accent-ink)}
+/* 켜진 비율 칩: 눌림 잔재(두꺼운 아래 줄) 제거 → 1.5px 파랑 테두리 + 틴트 (a11y.css 보다 선택자 우선) */
+.react .btn.ratio.on,.react .btn.ratio.on:hover{background:var(--accent-tint);border:1.5px solid var(--accent);color:var(--accent-ink);box-shadow:none}
+.seg button.on[type]{box-shadow:none}
+
+/* ── 하단 독: 편집 보조(잠금·안내선)만. 잠금은 선택했을 때만 보임 ── */
+.window .dock{width:fit-content;margin:var(--sp-4) auto 0;padding:var(--sp-2) var(--sp-4);gap:var(--sp-4);justify-content:center;border-radius:var(--r-card)}
+.dock .app .tile{width:40px;height:40px}
+.dock .app svg{width:20px;height:20px;stroke-width:1.75}
+.dock .app:hover .tile{transform:translateY(-2px)}
+#lockBtn:disabled{display:none}
+
+/* ── 패널 순서: 템플릿 먼저 ── */
+.side{display:flex;flex-direction:column;gap:0}
+.side>.panel:nth-child(3){order:-1}
+
+/* ── 사진이 없을 때 이미지 패널: 한 줄 안내로 접고 hover/포커스 시 펼침.
+   사진이 이미 올라가 있으면(빈 상태 오버레이 .ux-empty 가 꺼짐) 선택이 없어도 접지 않아 전역 보정(투명도·사진 보정)을 항상 찾을 수 있음 ── */
+.ps-nophoto-hint{display:none;margin:0;padding:var(--sp-4);font-size:var(--fs-md);font-weight:600;line-height:1.4;color:var(--ink)}   /* 빈 상태 안내 카드: 제목 14/600 + 설명 12 */
+.ps-nophoto-hint::after{content:"사진을 올리면 크기·자르기·보정 도구가 여기에 나타납니다." / "";display:block;margin-top:var(--sp-1);font-size:var(--fs-sm);font-weight:400;color:var(--sub)}
+#imgPanel.nophoto .ps-nophoto-hint{display:block}
+#imgPanel.nophoto h2{display:none}
+#imgPanel.nophoto>.in{max-height:0;overflow:hidden;padding-top:0;padding-bottom:0;opacity:0;transition:max-height var(--t),opacity var(--t)}
+#imgPanel.nophoto:hover>.in,#imgPanel.nophoto:focus-within>.in{max-height:2000px;opacity:1;padding-top:var(--sp-3);padding-bottom:var(--sp-3)}
+#imgPanel.nophoto:hover .ps-nophoto-hint,#imgPanel.nophoto:focus-within .ps-nophoto-hint{display:none}
+#imgPanel.nophoto:hover h2,#imgPanel.nophoto:focus-within h2{display:block}
+/* 불러오기 실패 사유(#imgMsg.bad)는 접힌 상태에서도 항상 보이게: 다른 도구는 숨기고 메시지만 노출 */
+#imgPanel.nophoto:has(#imgMsg.bad)>.in{max-height:none;overflow:visible;opacity:1;padding:0 var(--sp-4) var(--sp-4)}
+#imgPanel.nophoto:has(#imgMsg.bad):not(:hover):not(:focus-within)>.in>:not(#imgMsg){display:none}
+.grid:has(.ux-empty.ux-off) #imgPanel.nophoto .ps-nophoto-hint{display:none}
+.grid:has(.ux-empty.ux-off) #imgPanel.nophoto h2{display:block}
+.grid:has(.ux-empty.ux-off) #imgPanel.nophoto>.in{max-height:none;overflow:visible;opacity:1;padding-top:var(--sp-3);padding-bottom:var(--sp-4)}
+
+/* ── 줌 상태바(zoom.js 주입 스타일보다 선택자 우선) ── */
+.window #zoomBar{font-size:var(--fs-sm);color:var(--sub);gap:var(--sp-2)}
+.window #zoomBar .btn{padding:var(--sp-1) var(--sp-2)}
+
+/* ── 첫 화면 여백 (1440×900 에서 스크롤 없이) ── */
+.wrap{padding-top:var(--sp-4);padding-bottom:var(--sp-6)}
+.wbody{padding:var(--sp-2) var(--sp-4) var(--sp-3)}
+.window,.side{top:var(--sp-4)}
+
+@media(max-width:600px){
+  .wrap{padding:var(--sp-2) 0 var(--sp-5)}
+  .wbar.ps-head{padding-left:var(--sp-3);gap:var(--sp-2);flex-wrap:nowrap}
+  .ps-head .ps-title{font-size:var(--fs-md)}
+  .ps-actions{gap:var(--sp-2);position:static}
+  .ps-head .savemenu{left:var(--sp-2);right:var(--sp-2);width:auto}
+  .react .btn.ratio{padding:var(--sp-1) var(--sp-2)}
+  .wbody{padding:var(--sp-2) var(--sp-2) var(--sp-3)}
+  .stage{margin-inline:calc(-1 * var(--sp-2))}   /* 좁은 화면은 .wbody 패딩이 8px */
+}
+/* 아주 좁은 화면: 라벨 대신 아이콘 우선(글자는 접근성 이름으로 남김) */
+@media(max-width:480px){
+  .ps-head .app,.ps-head .app.ps-save{font-size:0;gap:0;padding:0;width:36px;height:36px}
+  .ps-head .ux-keys-btn{padding:0 var(--sp-2);font-size:var(--fs-sm)}
+}
+
+/* ── 줌 상태바: '|' 구분자 대신 칩(줄바꿈돼도 고아 구분자 없음). zoom.js 주입 스타일을 .window #zoomBar 로 덮어씀 ── */
+.window #zoomBar .zsep{display:none}
+.window #zoomBar{gap:var(--sp-2);margin:var(--sp-2) 0 0}
+.window #zoomBar .zinfo{padding:var(--sp-1) var(--sp-2);border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--line);color:var(--sub);font-size:var(--fs-sm);line-height:1.4}
+.window #zoomBar .zinfo:empty{display:none}
+.window #zoomBar .zpct{font-size:var(--fs-sm);color:var(--ink)}
+
+/* ── 세로 리듬(8 배수): 복사 줄 · 힌트 · 독 사이 16px ── */
+.orderbar{margin-top:var(--sp-4);min-height:36px}
+.orderbar+.dock,.window .orderbar+.dock{margin-top:var(--sp-4)}
+.ux-hint{margin:var(--sp-4) auto 0}
+
+/* ── 패널 위계: 섹션 제목 13/600 + 구분선, 슬라이더 라벨 12, 값 tabular-nums ── */
+.panel .in label{font-size:var(--fs-sm);font-weight:400;color:var(--sub);margin:var(--sp-3) 0 var(--sp-1)}
+#adjBox>label[style]{margin-top:var(--sp-4)!important;padding-top:var(--sp-3);border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink)}
+#adjBox>label[style] .adjreset{font-weight:400}
+.panel .in .val{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+#opacityBox{margin-top:var(--sp-1)}
+
+/* ── 템플릿: 2열 그리드(3장 + 배경 해제 = 2×2), 배경색 줄·메시지는 잘리지 않게 ── */
+#tplRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
+#tplRow>.btn{width:100%;min-height:44px;height:100%;display:grid;place-items:center;text-align:center}
+.side .panel .in{min-width:0}
+.side{padding-bottom:var(--sp-2)}
+#bgPick{flex:none}
+
+/* ── 스티커 그리드: 안에서 스크롤됨을 하단 페이드 + 얇은 스크롤바로 표시 ── */
+#stickerRow{max-height:216px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:var(--sp-5);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 32px),transparent)}
+
+@media(max-width:600px){
+  .window #zoomBar .btn{min-width:0}
+}
+
+/* 가운데 열이 캔버스 폭에 맞춰 좁아졌을 때는 헤더 제목을 숨겨 버튼이 잘리지 않게 */
+.ps-narrow .ps-title{display:none}
+
+/* ── 재배치: 캔버스 위 한 줄 툴바 + 아래는 상태 한 줄(layout.js) ── */
+.ps-gone{display:none!important}
+.ps-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp-2) var(--sp-3);margin:var(--sp-2) 0 44px}   /* 아래 44px: 선택 시 캔버스 위로 튀어나오는 회전 핸들 자리 */
+.ps-zoom,.ps-edit{display:flex;align-items:center;gap:var(--sp-1);flex-wrap:wrap}
+.ps-zoom .zpct{min-width:44px;text-align:center;font-weight:600;font-size:var(--fs-sm);color:var(--ink);font-variant-numeric:tabular-nums}
+.ps-zoom .btn,.ps-edit .btn{padding:var(--sp-1) var(--sp-2);min-width:0}
+.ps-edit .app{flex-direction:row;gap:var(--sp-1);height:30px;padding:0 var(--sp-2);border:1px solid var(--line-strong);border-radius:var(--r-btn);background:var(--surface-2);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
+.ps-edit .app .tile{width:16px;height:16px;border:0;background:none;border-radius:0}
+.ps-edit .app svg{width:16px;height:16px;stroke-width:1.75}
+.ps-edit .app:hover .tile{transform:none}
+.ps-edit .app:hover{background:var(--line)}
+.ps-edit .app.on{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-ink)}
+.ps-edit .app.on .tile{background:none;border:0}
+.window #zoomBar{margin:var(--sp-2) 0 0;justify-content:center}
+/* 오른쪽 패널 맨 위로 옮겨 온 정렬·수치 입력, 힌트 */
+.main>#alignBar{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);padding:var(--sp-3) var(--sp-4);margin:0 0 var(--sp-4);justify-content:flex-start}
+.main>.ux-hint{margin:0 0 var(--sp-4);text-align:left}
+
+/* ── 왼쪽 사이드 맨 위: 로고·저장/불러오기·화면비·툴바(layout.js 가 옮겨 옴). 가운데는 캔버스만 ── */
+.ps-sidetop{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-panel);margin-bottom:var(--sp-4);position:relative}
+.ps-sidetop .wbar.ps-head{flex-wrap:wrap;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--line)}
+.ps-sidetop .ps-title{flex:1 0 100%;order:-1;font-size:var(--fs-xl);letter-spacing:-.02em}   /* 로고 느낌: 왼쪽 위 */
+.ps-sidetop .ps-actions{order:1;flex:1 1 auto;flex-wrap:wrap}
+.ps-sidetop .ps-head .savemenu{left:0;right:auto;width:min(300px,100%)}
+.ps-sidetop .react{width:auto;max-width:none;margin:var(--sp-3) var(--sp-4);justify-content:stretch;flex-wrap:wrap}
+.ps-sidetop .react .btn.ratio{flex:1 1 56px;padding:var(--sp-1) var(--sp-2)}
+.ps-sidetop .ps-tools{margin:0;padding:0 var(--sp-4) var(--sp-3);flex-direction:column;align-items:stretch;gap:var(--sp-2)}
+.ps-sidetop .ps-zoom,.ps-sidetop .ps-edit{justify-content:flex-start}
+/* 캔버스 창: 위에 회전 핸들 자리만 남기고 나머지는 캔버스 */
+.window .wbody{padding:44px var(--sp-4) var(--sp-3)}
+@media(max-width:600px){.window .wbody{padding:44px var(--sp-2) var(--sp-3)}}
+
+.ps-sidetop{order:-10}   /* 템플릿·스티커 패널(order 지정)보다 항상 맨 위 */
+.ps-sidetop .wbar.ps-head{height:auto;min-height:0}   /* 두 줄로 접혀도 높이가 따라가도록(원래 40px 고정) */
+
+/* ═══ 디자인팀 피드백 반영 ═══ */
+/* 화면비 라벨이 한 글자씩 줄바꿈되지 않게 */
+.react .btn .ps-rl{white-space:nowrap}
+.ps-sidetop .react .btn.ratio{flex:1 1 76px}
+
+/* 왼쪽 패널: 작은 스크롤 상자 대신 페이지와 함께 자연스럽게 스크롤(템플릿·스티커가 잘려 보이던 문제) */
+.side{position:static;max-height:none;overflow:visible}
+
+/* 1000~1250px: 오른쪽 편집 패널이 캔버스 아래로 밀려 한참 스크롤해야 하던 문제 → 3열 유지(폭만 줄임) */
+@media(min-width:1000px) and (max-width:1250px){
+  .grid{grid-template-columns:minmax(230px,270px) minmax(0,var(--ccol,560px)) minmax(270px,1fr);grid-template-areas:"side preview main";gap:var(--sp-4)}
+}
+
+/* 사이트 닫기(✕): 헤더의 눈에 띄는 위치에서 왼쪽 패널 맨 아래의 작은 글자 버튼으로 */
+.side>.wclose.ps-close{order:99;width:auto;min-width:0;height:auto;margin:var(--sp-2) 0 var(--sp-4);padding:var(--sp-2) var(--sp-3);display:inline-flex;align-self:flex-start;font-size:var(--fs-sm);font-weight:400;border:0;background:none;color:var(--sub);border-radius:var(--r-btn);cursor:pointer}
+.side>.wclose.ps-close:hover,.side>.wclose.ps-close:focus-visible{background:var(--danger);color:#fff}
+
+/* 저장 메뉴의 옵션(크기 배율·JPEG 품질) */
+.savemenu .opts{padding:var(--sp-3) var(--sp-4) var(--sp-3);border-top:1px solid var(--line);background:var(--surface)}
+.savemenu .optrow{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-2);font-size:var(--fs-sm);color:var(--sub)}
+.savemenu .optrow b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-left:var(--sp-1)}
+.savemenu .optrow input[type=range]{flex:1;min-width:90px}
+.savemenu .optrow label{margin:0;white-space:nowrap}
+.savemenu .opts .hint{font-size:var(--fs-sm);color:var(--sub);line-height:1.45;margin:0}
+.seg.sm button{padding:var(--sp-1) var(--sp-3)}
+
+/* 저장 후 비교는 접어 두기 */
+#cmpBox .cmpd{margin-top:var(--sp-2)}
+#cmpBox .cmpd>summary{cursor:pointer;font-size:var(--fs-sm);color:var(--sub);padding:var(--sp-1) 0}
+
+/* 글자 효과·HEX·브랜드 색 */
+.hexrow{margin-top:var(--sp-2);flex-wrap:nowrap}
+.hexrow input[type=text]{width:92px;min-width:0;padding:6px 8px;border:1px solid var(--line-strong);border-radius:var(--r-btn);font:inherit;font-size:var(--fs-sm);font-family:ui-monospace,Consolas,monospace;text-transform:uppercase;background:var(--surface)}
+.hexrow .btn{padding:var(--sp-1) var(--sp-2);white-space:nowrap}
+.pal{margin-top:var(--sp-2);gap:6px}
+.pal button{width:24px;height:24px;border-radius:var(--r-btn);border:1px solid var(--line-strong);padding:0;cursor:pointer}
+.pal button.on{outline:2px solid var(--accent);outline-offset:1px}
+.pal .palhint{font-size:var(--fs-sm);color:var(--sub)}
+.fxbox{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fxrow{display:flex;align-items:center;gap:var(--sp-2)}
+.fxrow>span{flex:0 0 92px;font-size:var(--fs-sm);color:var(--sub)}
+.fxrow>input[type=range]{flex:1;min-width:0}
+.fxrow>.btn{flex:1}
+
+/* 레이어 목록 */
+#layerPanel h2{display:flex;justify-content:space-between;align-items:center}
+.layers{display:flex;flex-direction:column;gap:2px;max-height:228px;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain;border:1px solid var(--line);border-radius:var(--r-btn);background:var(--surface-2)}
+.lempty{padding:var(--sp-3);font-size:var(--fs-sm);color:var(--sub)}
+.lrow{display:flex;align-items:center;gap:var(--sp-1);padding:4px var(--sp-2);cursor:pointer;background:var(--surface);border-bottom:1px solid var(--line);min-height:36px}
+.lrow:hover{background:var(--surface-2)}
+.lrow.on{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent)}
+.lrow.locked .lname{color:var(--sub)}
+.lrow .lkind{flex:none;font-size:11px;font-weight:600;padding:1px 6px;border-radius:var(--r-btn);background:var(--surface-2);border:1px solid var(--line);color:var(--sub)}
+.lrow .lname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--ink)}
+.lrow button{flex:none;width:28px;height:28px;padding:0;border:1px solid transparent;border-radius:var(--r-btn);background:none;color:var(--sub);font-size:12px;cursor:pointer}
+.lrow button:hover:not(:disabled){background:var(--line);color:var(--ink)}
+.lrow button:disabled{opacity:.35;cursor:default}
+.lrow button[title="삭제"]:hover{background:var(--danger);color:#fff}
+
+/* 카드(여러 장) 막대 + 자동저장 상태 */
+.ps-pages{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1);padding:0 var(--sp-4) var(--sp-3)}
+.ps-pages .plabel{font-size:var(--fs-sm);font-weight:600;color:var(--ink);margin-right:var(--sp-1)}
+.ps-pages .btn.sm{padding:var(--sp-1) var(--sp-2);min-width:30px}
+.ps-pages .btn.pg.on{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-ink)}
+.ps-autosave{flex:1 0 100%;font-size:var(--fs-sm);color:var(--sub);min-height:16px}
+.ps-autosave.bad{color:var(--danger)}
+
+#dlgOk.safe{background:var(--accent);color:#fff}
+#dlgOk.safe:hover{background:var(--accent-hover)}
+
+/* 오른쪽 편집 패널(정렬·레이어·사진·문구)이 휠로 내려도 화면에 따라옴. 패널이 화면보다 길면 안에서 스크롤.
+   3열로 보이는 폭(1000px 이상)에서만 — 좁아서 미리보기 아래로 내려간 배치에서는 쓰지 않음 */
+@media(min-width:1000px){
+  aside.main{position:sticky;top:var(--sp-4);max-height:calc(100vh - 2 * var(--sp-4));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;align-self:start}
+}
+
+/* 왼쪽 패널(화면비·줌·카드·스티커·템플릿)도 오른쪽처럼 휠로 내려도 따라옴(3열 폭에서만) */
+@media(min-width:1000px){
+  aside.side{position:sticky;top:var(--sp-4);max-height:calc(100vh - 2 * var(--sp-4));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;align-self:start}
+}
+
+.fsel{width:100%;padding:7px 8px;border-radius:var(--r-btn);border:1px solid var(--line-strong);background:var(--surface-2);font:inherit;font-size:13px;color:var(--ink)}
+
+/* 다중 선택 오버레이·범위 선택 상자·묶음 도구 */
+.msel-layer{position:absolute;inset:0;pointer-events:none;z-index:4}
+.msel{position:absolute;border:1.5px dashed var(--accent);box-sizing:border-box;pointer-events:none;transform-origin:center}
+.mgrp{position:absolute;border:1px solid var(--accent);box-sizing:border-box;pointer-events:none;outline:1px solid rgba(255,255,255,.7)}
+.marquee{position:absolute;border:1px solid var(--accent);background:rgba(42,100,240,.12);pointer-events:none;z-index:5}
+#multiBar .row{margin-bottom:var(--sp-1)}
+#multiBar .btn.sm{padding:var(--sp-1) var(--sp-2)}
+
+/* 터치(손가락) 화면: 선택 핸들·버튼을 크게, 제목은 숨겨 캔버스가 더 빨리 보이게 */
+@media(pointer:coarse){
+  #sel .hd{width:26px;height:26px}
+  #sel .rh{width:26px;height:26px;margin-left:-15px;touch-action:none}
+  .lrow button{width:36px;height:36px}
+  .pal button{width:32px;height:32px}
+}
+@media(max-width:600px){
+  .ps-sidetop .ps-title{display:none}
+  .ps-sidetop .wbar.ps-head{padding:var(--sp-2) var(--sp-3)}
+  .ps-sidetop .react{margin:var(--sp-2) var(--sp-3)}
+  .ps-pages{padding:0 var(--sp-3) var(--sp-2)}
+  .ps-sidetop .ps-tools{padding:0 var(--sp-3) var(--sp-2)}
+}
