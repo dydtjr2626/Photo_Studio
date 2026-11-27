@@ -21,7 +21,7 @@ node server.js     # static server → http://localhost:8000
 - `index.html` — all markup (CSS moved out, see UI 개편 below); element IDs are looked up directly by `app.js` via `$('id')`, so renaming an ID breaks the script. Make sure line 1 is `<!doctype html>` (a stray character before it puts the page in quirks mode).
 - `app.js` — all logic, one plain script (no modules), organized in banner-comment sections.
 - `server.js` — static file server.
-- Images: `공포.jpg`, `사랑스러움.jpg`, `생일.png` (templates), `logo.png` (512×512, currently unused — the top "Photo Studio" logo banner was removed).
+- Images: `공포.jpg`, `사랑스러움.jpg`, `생일.png` (templates).
 - Docs: `확인방법.md` (short check guide for template JSON / finished images), `출처기록표.md` (image provenance table; `(작성 필요)` cells are for the user to fill in).
 
 ## Architecture (`app.js`)
